@@ -11,15 +11,17 @@ class DatabaseSeeder extends Seeder
     use WithoutModelEvents;
 
     /**
-     * Seed the application's database.
+     * NFR-11: Database dikelola melalui migration dan dilengkapi seeder.
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // Data area parkir untuk development & demo
+        $this->call(ParkingAreaSeeder::class);
 
+        // User default untuk development
         User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+            'name'  => 'Admin ParkirPintar',
+            'email' => 'admin@parkirpintar.local',
         ]);
     }
 }
