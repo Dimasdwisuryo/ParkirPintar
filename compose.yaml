@@ -1,0 +1,83 @@
+name: parkirpintar
+
+services:
+
+  db:
+    image: mysql:8.4
+    container_name: parkirpintar-db
+
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:?MYSQL_DATABASE wajib diisi}
+      MYSQL_USER: ${MYSQL_USER:?MYSQL_USER wajib diisi}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD wajib diisi}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD wajib diisi}
+
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+    networks:
+      - backend
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          mysql -h 127.0.0.1 -u root
+          -p"$$MYSQL_ROOT_PASSWORD"
+          -e 'SELECT 1' > /dev/null 2>&1
+
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 40s
+
+    restart: unless-stopped
+
+  app:
+    image: ${APP_IMAGE:?APP_IMAGE wajib diisi}:latest
+
+    container_name: parkirpintar-app
+
+    environment:
+      APP_NAME: ParkirPintar
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: ${APP_KEY:?APP_KEY wajib diisi}
+      APP_URL: http://127.0.0.1:8000
+      APP_TIMEZONE: Asia/Jakarta
+
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_DATABASE: ${MYSQL_DATABASE}
+      DB_USERNAME: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+
+      SESSION_DRIVER: file
+      CACHE_STORE: file
+      QUEUE_CONNECTION: sync
+
+    ports:
+      - "127.0.0.1:8000:80"
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    networks:
+      - frontend
+      - backend
+
+    restart: unless-stopped
+
+networks:
+  frontend:
+    driver: bridge
+
+  backend:
+    driver: bridge
+    internal: true
+
+volumes:
+  mysql_data:
+
