@@ -74,26 +74,25 @@ pipeline {
         stage('Smoke Test') {
             steps {
                 script {
-                    int attempts = 12
-                    boolean healthy = false
+                    def healthy = false
 
-                    for (int i = 1; i <= attempts; i++) {
-                        def status = bat(
-                            script: '@powershell -NoProfile -Command "try { $r = Invoke-RestMethod -Uri $env:SMOKE_URL -TimeoutSec 5; if ($r.status -eq \'healthy\') { exit 0 } else { exit 1 } } catch { exit 1 }"',
+                    for (int i = 1; i <= 12; i++) {
+                        def result = bat(
+                            script: '@powershell -NoProfile -Command "try { $r = Invoke-RestMethod -Uri \'http://127.0.0.1:8000/health\' -TimeoutSec 5; if ($r.status -eq \'healthy\') { exit 0 } else { exit 1 } } catch { exit 1 }"',
                             returnStatus: true
                         )
 
-                        if (status == 0) {
+                        if (result == 0) {
                             healthy = true
                             break
                         }
 
-                        echo "Menunggu aplikasi sehat... percobaan ${i}/${attempts}"
-                        sleep time: 5, unit: 'SECONDS'
+                        echo "Menunggu aplikasi siap: ${i}/12"
+                        sleep(time: 5, unit: 'SECONDS')
                     }
 
                     if (!healthy) {
-                        error 'Smoke Test gagal: aplikasi belum memberikan status healthy.'
+                        error 'Smoke Test gagal: endpoint /health belum healthy.'
                     }
                 }
             }
@@ -104,8 +103,10 @@ pipeline {
         always {
             script {
                 if (fileExists('test-results/junit.xml')) {
-                    junit testResults: 'test-results/junit.xml',
-                          allowEmptyResults: false
+                    junit(
+                        testResults: 'test-results/junit.xml',
+                        allowEmptyResults: false
+                    )
 
                     archiveArtifacts(
                         artifacts: 'test-results/junit.xml',
@@ -118,11 +119,11 @@ pipeline {
         }
 
         success {
-            echo 'Pipeline sukses: aplikasi berhasil di-deploy dan smoke test berhasil.'
+            echo 'Pipeline sukses: ParkirPintar berhasil di-deploy.'
         }
 
         failure {
-            echo 'Pipeline gagal: periksa stage yang merah.'
+            echo 'Pipeline gagal. Periksa stage yang merah.'
         }
     }
 }
