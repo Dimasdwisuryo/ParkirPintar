@@ -16,6 +16,16 @@ class StoreParkingAreaRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if (!$this->filled('name') && $this->filled('name_input')) {
+            $code = trim($this->input('code', ''));
+            $nameInput = trim($this->input('name_input', ''));
+            $name = $code !== '' ? ($code . ' ' . $nameInput) : $nameInput;
+            $this->merge(['name' => $name]);
+        }
+    }
+
     public function rules(): array
     {
         return [
@@ -23,6 +33,7 @@ class StoreParkingAreaRequest extends FormRequest
             'location'            => ['nullable', 'string', 'max:255'],
             'capacity_motorcycle' => ['required', 'integer', 'min:0', 'max:9999'],
             'capacity_car'        => ['required', 'integer', 'min:0', 'max:9999'],
+            'is_active'           => ['nullable', 'boolean'],
         ];
     }
 
