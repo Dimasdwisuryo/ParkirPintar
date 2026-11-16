@@ -33,8 +33,27 @@ class CheckInController extends Controller
     public function create(): View
     {
         $areas = ParkingArea::active()->orderBy('name')->get();
+        $totalCarCapacity = (int) ParkingArea::active()->sum('capacity_car');
+        $totalMotorcycleCapacity = (int) ParkingArea::active()->sum('capacity_motorcycle');
 
-        return view('check-in.create', compact('areas'));
+        $bestCarArea = $areas->filter(fn ($a) => $a->hasAvailableSlot('car'))
+            ->sortBy(fn ($a) => $a->capacity_car > 0 ? ($a->getOccupiedCarCount() / $a->capacity_car) : 1)
+            ->first() ?? $areas->first();
+
+        $bestMotorcycleArea = $areas->filter(fn ($a) => $a->hasAvailableSlot('motorcycle'))
+            ->sortBy(fn ($a) => $a->capacity_motorcycle > 0 ? ($a->getOccupiedMotorcycleCount() / $a->capacity_motorcycle) : 1)
+            ->first() ?? $areas->first();
+
+        $bestCarAreaId = $bestCarArea?->id;
+        $bestMotorcycleAreaId = $bestMotorcycleArea?->id;
+
+        return view('check-in.create', compact(
+            'areas',
+            'totalCarCapacity',
+            'totalMotorcycleCapacity',
+            'bestCarAreaId',
+            'bestMotorcycleAreaId'
+        ));
     }
 
     /**
@@ -66,7 +85,29 @@ class CheckInController extends Controller
     public function success(ParkingTransaction $transaction): View
     {
         $transaction->load('parkingArea');
+        $areas = ParkingArea::active()->orderBy('name')->get();
+        $totalCarCapacity = (int) ParkingArea::active()->sum('capacity_car');
+        $totalMotorcycleCapacity = (int) ParkingArea::active()->sum('capacity_motorcycle');
 
-        return view('check-in.success', compact('transaction'));
+        $bestCarArea = $areas->filter(fn ($a) => $a->hasAvailableSlot('car'))
+            ->sortBy(fn ($a) => $a->capacity_car > 0 ? ($a->getOccupiedCarCount() / $a->capacity_car) : 1)
+            ->first() ?? $areas->first();
+
+        $bestMotorcycleArea = $areas->filter(fn ($a) => $a->hasAvailableSlot('motorcycle'))
+            ->sortBy(fn ($a) => $a->capacity_motorcycle > 0 ? ($a->getOccupiedMotorcycleCount() / $a->capacity_motorcycle) : 1)
+            ->first() ?? $areas->first();
+
+        $bestCarAreaId = $bestCarArea?->id;
+        $bestMotorcycleAreaId = $bestMotorcycleArea?->id;
+        $ticket = $transaction;
+
+        return view('check-in.create', compact(
+            'areas',
+            'ticket',
+            'totalCarCapacity',
+            'totalMotorcycleCapacity',
+            'bestCarAreaId',
+            'bestMotorcycleAreaId'
+        ));
     }
 }
