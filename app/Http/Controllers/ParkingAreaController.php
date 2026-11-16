@@ -31,7 +31,29 @@ class ParkingAreaController extends Controller
             'activeTransactions as occupied_car'        => fn ($q) => $q->where('vehicle_type', 'car'),
         ])->orderBy('name')->get();
 
-        return view('parking-areas.index', compact('areas'));
+        $activeAreas = $areas->where('is_active', true);
+        $activeAreasCount = $activeAreas->count();
+        $totalAreasCount  = $areas->count();
+
+        $totalCarCapacity  = (int) $activeAreas->sum('capacity_car');
+        $totalCarOccupied  = (int) $activeAreas->sum('occupied_car');
+        $totalCarAvailable = max(0, $totalCarCapacity - $totalCarOccupied);
+
+        $totalMotorcycleCapacity  = (int) $activeAreas->sum('capacity_motorcycle');
+        $totalMotorcycleOccupied  = (int) $activeAreas->sum('occupied_motorcycle');
+        $totalMotorcycleAvailable = max(0, $totalMotorcycleCapacity - $totalMotorcycleOccupied);
+
+        return view('parking-areas.index', compact(
+            'areas',
+            'activeAreasCount',
+            'totalAreasCount',
+            'totalCarCapacity',
+            'totalCarOccupied',
+            'totalCarAvailable',
+            'totalMotorcycleCapacity',
+            'totalMotorcycleOccupied',
+            'totalMotorcycleAvailable'
+        ));
     }
 
     /**
