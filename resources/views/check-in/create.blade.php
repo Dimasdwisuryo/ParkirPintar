@@ -236,7 +236,7 @@
 
                             {{-- Area Barcode Code128 Nyata --}}
                             <div class="flex flex-col items-center justify-center pt-1 pb-1 bg-white">
-                                <svg id="ticketBarcode" class="max-w-full h-12"></svg>
+                                <svg id="ticketBarcode" class="max-w-full" style="shape-rendering: crispEdges;"></svg>
                                 <div class="font-mono text-[11px] font-bold tracking-[0.2em] text-[#102D21] mt-1 text-center">
                                     {{ $ticket->ticket_number }}
                                 </div>
@@ -372,9 +372,9 @@
                     format: "CODE128",
                     lineColor: "#000000",
                     width: 2,
-                    height: 48,
+                    height: 56,
                     displayValue: false,
-                    margin: 12,
+                    margin: 16,
                     background: "#ffffff"
                 });
             }
