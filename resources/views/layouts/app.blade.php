@@ -198,12 +198,6 @@
 
             {{-- Right Header Actions --}}
             <div class="flex items-center gap-3">
-                {{-- Notification Button --}}
-                <div class="relative w-9 h-9 rounded-full bg-white border border-[#E0E5E2] flex items-center justify-center text-[#102D21] shadow-xs cursor-pointer hover:bg-gray-50 transition" title="Notifikasi">
-                    <i class="bi bi-bell text-xs"></i>
-                    <span class="w-2 h-2 rounded-full bg-[#EA6546] border border-white absolute top-2 right-2"></span>
-                </div>
-
                 {{-- Primary Action Button --}}
                 <a href="{{ route('check-in.create') }}"
                    class="px-4 py-2 rounded-xl bg-[#173F2E] hover:bg-[#234D39] text-white text-xs font-bold flex items-center gap-2 shadow-xs transition active:scale-98">
