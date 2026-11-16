@@ -6,8 +6,19 @@
 <style>
     /* Styling khusus scanner camera */
     #cameraReader video {
-        border-radius: 1rem;
+        border-radius: 0.75rem;
         object-fit: cover;
+        width: 100% !important;
+    }
+    #cameraReader {
+        width: 100% !important;
+        border: none !important;
+    }
+    #cameraReader__scan_region {
+        background: transparent !important;
+    }
+    #cameraReader__scan_region img {
+        display: none !important;
     }
 </style>
 @endpush
@@ -43,12 +54,30 @@
 
                 {{-- Area Kamera WebCam --}}
                 <div id="cameraContainer" class="hidden mb-3">
-                    <div id="cameraReader" class="w-full max-w-sm mx-auto overflow-hidden rounded-xl border border-[#E0E5E2]"></div>
+                    {{-- Loading Indicator saat kamera menginisialisasi --}}
+                    <div id="cameraLoading" class="p-6 text-center bg-[#FAFBFA] rounded-xl border border-[#E0E5E2] mb-3">
+                        <div class="w-8 h-8 border-3 border-[#173F2E] border-t-transparent rounded-full animate-spin mx-auto mb-2.5"></div>
+                        <p class="text-xs font-bold text-[#102D21]">Menghubungkan ke kamera...</p>
+                        <p class="text-[11px] text-[#8A958F] mt-0.5">Pastikan memilih <strong>Izinkan (Allow)</strong> saat peramban meminta izin kamera.</p>
+                    </div>
+
+                    {{-- Error Notice jika izin diblokir atau kamera tidak ada --}}
+                    <div id="cameraError" class="hidden p-4 bg-[#FBEDE4] border border-[#EA6546] rounded-xl text-left mb-3">
+                        <div class="flex items-center gap-2 text-xs font-bold text-[#EA6546] mb-1">
+                            <i class="bi bi-exclamation-triangle-fill"></i> Kamera Tidak Dapat Diakses
+                        </div>
+                        <p id="cameraErrorMsg" class="text-[11px] text-[#102D21] leading-relaxed"></p>
+                    </div>
+
+                    {{-- Viewfinder Element html5-qrcode --}}
+                    <div id="cameraReader" class="w-full max-w-sm mx-auto overflow-hidden rounded-xl"></div>
+
                     <button type="button"
                             id="btnStopCamera"
                             onclick="stopCameraScanner()"
-                            class="mt-3 px-4 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs transition">
-                        <i class="bi bi-x-circle me-1"></i>Tutup kamera
+                            class="mt-3 px-4 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs transition inline-flex items-center gap-1.5 shadow-2xs">
+                        <i class="bi bi-x-circle"></i>
+                        <span>Tutup kamera</span>
                     </button>
                 </div>
 
@@ -500,22 +529,43 @@
         }
     }
 
-    // Buka Scanner Kamera (Format 1D Code128 & QR)
+    // Buka Scanner Kamera (Mendukung Kamera Laptop, USB, HP, Barcode 1D & QR)
     function startCameraScanner() {
         const container = document.getElementById('cameraContainer');
         const btnStart = document.getElementById('btnStartCamera');
+        const loadingBox = document.getElementById('cameraLoading');
+        const errorBox = document.getElementById('cameraError');
+
         if (container) container.classList.remove('hidden');
         if (btnStart) btnStart.classList.add('hidden');
+        if (loadingBox) loadingBox.classList.remove('hidden');
+        if (errorBox) errorBox.classList.add('hidden');
 
         isProcessingScan = false;
 
-        // 1. Format eksplisit: Code128, QR, Code39, EAN13 + BarcodeDetector
+        // Cek dukungan MediaDevices
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            showCameraError("Akses kamera memerlukan koneksi aman. Silakan buka aplikasi melalui http://localhost:8000 atau http://127.0.0.1:8000.");
+            return;
+        }
+
+        // Bersihkan instance lama jika ada
+        if (html5QrCode) {
+            try {
+                html5QrCode.clear();
+            } catch (e) {}
+            html5QrCode = null;
+        }
+
+        // Format barcode yang didukung
         const formatsToSupport = typeof Html5QrcodeSupportedFormats !== 'undefined'
             ? [
                 Html5QrcodeSupportedFormats.CODE_128,
                 Html5QrcodeSupportedFormats.QR_CODE,
                 Html5QrcodeSupportedFormats.CODE_39,
                 Html5QrcodeSupportedFormats.EAN_13,
+                Html5QrcodeSupportedFormats.UPC_A,
+                Html5QrcodeSupportedFormats.UPC_E,
             ]
             : undefined;
 
@@ -529,42 +579,75 @@
 
         html5QrCode = new Html5Qrcode("cameraReader", scannerConfig);
 
-        // 2. Format qrbox persegi panjang melebar khusus barcode 1D Code128
+        // Box persegi panjang horizontal melebar untuk barcode 1D Code128
         const scanConfig = {
             fps: 15,
             qrbox: (viewfinderWidth, viewfinderHeight) => {
-                const width = Math.min(340, Math.max(220, Math.floor(viewfinderWidth * 0.88)));
-                const height = Math.min(140, Math.max(90, Math.floor(viewfinderHeight * 0.65)));
+                const width = Math.min(320, Math.max(200, Math.floor(viewfinderWidth * 0.88)));
+                const height = Math.min(140, Math.max(80, Math.floor(viewfinderHeight * 0.6)));
                 return { width: width, height: height };
             },
             aspectRatio: 1.777778
         };
 
-        const cameraConfig = {
-            facingMode: "environment",
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-        };
+        // Deteksi kamera fisik (Webcam Laptop, USB Camera, atau Kamera HP)
+        Html5Qrcode.getCameras().then(devices => {
+            if (devices && devices.length > 0) {
+                // Utamakan kamera belakang jika ada (misal di HP), atau gunakan device pertama (laptop/webcam)
+                const rearCamera = devices.find(d => /back|rear|environment|belakang/i.test(d.label));
+                const targetCameraId = rearCamera ? rearCamera.id : devices[0].id;
 
+                html5QrCode.start(
+                    targetCameraId,
+                    scanConfig,
+                    onScanSuccess,
+                    () => {}
+                ).then(() => {
+                    if (loadingBox) loadingBox.classList.add('hidden');
+                }).catch(() => {
+                    startFallback(scanConfig);
+                });
+            } else {
+                startFallback(scanConfig);
+            }
+        }).catch(() => {
+            startFallback(scanConfig);
+        });
+    }
+
+    function startFallback(scanConfig) {
+        const loadingBox = document.getElementById('cameraLoading');
+        // Coba mode generic facingMode: 'user' (sangat cocok untuk kamera webcam laptop)
         html5QrCode.start(
-            cameraConfig,
+            { facingMode: "user" },
             scanConfig,
             onScanSuccess,
-            (errorMessage) => {
-                // Scanning berkala
-            }
-        ).catch(() => {
-            // Fallback kamera biasa jika constraint resolusi ditolak browser
+            () => {}
+        ).then(() => {
+            if (loadingBox) loadingBox.classList.add('hidden');
+        }).catch(() => {
+            // Coba dengan boolean true (default camera stream)
             html5QrCode.start(
-                { facingMode: "environment" },
+                true,
                 scanConfig,
                 onScanSuccess,
                 () => {}
-            ).catch((err) => {
-                alert('Tidak dapat mengakses kamera: ' + err);
-                stopCameraScanner();
+            ).then(() => {
+                if (loadingBox) loadingBox.classList.add('hidden');
+            }).catch(err => {
+                showCameraError("Kamera tidak dapat diakses (" + (err.message || err) + "). Pastikan Anda telah memberikan izin kamera pada peramban dan kamera tidak sedang dipakai aplikasi lain (Zoom, Teams, dsb).");
             });
         });
+    }
+
+    function showCameraError(msg) {
+        const loadingBox = document.getElementById('cameraLoading');
+        const errorBox = document.getElementById('cameraError');
+        const errorMsg = document.getElementById('cameraErrorMsg');
+
+        if (loadingBox) loadingBox.classList.add('hidden');
+        if (errorBox) errorBox.classList.remove('hidden');
+        if (errorMsg) errorMsg.innerText = msg;
     }
 
     // Tutup Scanner Kamera
