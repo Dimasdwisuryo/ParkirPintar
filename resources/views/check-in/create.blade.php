@@ -189,7 +189,7 @@
                     </div>
 
                     {{-- Struk Karcis Masuk (Printable Target) --}}
-                    <div id="ticketReceipt" class="border border-[#E0E5E2] rounded-2xl overflow-hidden bg-white shadow-xs">
+                    <div id="ticketReceipt" class="border border-[#E0E5E2] rounded-2xl overflow-hidden bg-white shadow-xs" style="page-break-inside: avoid;">
                         {{-- Top Dark Banner --}}
                         <div class="bg-[#173F2E] px-6 py-4 text-center">
                             <div class="text-[10px] tracking-widest text-[#D5F067] font-extrabold uppercase mb-0.5">
@@ -200,44 +200,52 @@
                             </div>
                         </div>
 
-                        {{-- Ticket Details --}}
+                        {{-- Ticket Details Menggunakan Tabel Standar (Kompatibel 100% PDF Tanpa Terpotong) --}}
                         <div class="p-5">
-                            <div class="grid grid-cols-2 gap-4 text-left">
-                                <div>
-                                    <div class="text-[10px] font-bold text-[#8A958F] tracking-wider uppercase mb-0.5">NOMOR TIKET</div>
-                                    <div class="font-mono text-xs font-extrabold text-[#102D21]">{{ $ticket->ticket_number }}</div>
-                                </div>
-                                <div>
-                                    <div class="text-[10px] font-bold text-[#8A958F] tracking-wider uppercase mb-0.5">PLAT NOMOR</div>
-                                    <div class="text-xs font-extrabold text-[#102D21]">{{ $ticket->license_plate }}</div>
-                                </div>
-                                <div>
-                                    <div class="text-[10px] font-bold text-[#8A958F] tracking-wider uppercase mb-0.5">JENIS KENDARAAN</div>
-                                    <div class="text-xs font-extrabold text-[#102D21]">{{ $ticket->vehicle_type === 'car' ? 'Mobil' : 'Motor' }}</div>
-                                </div>
-                                <div>
-                                    <div class="text-[10px] font-bold text-[#8A958F] tracking-wider uppercase mb-0.5">AREA PARKIR</div>
-                                    <div class="text-xs font-extrabold text-[#102D21]">{{ $ticket->parkingArea->name ?? 'A-02' }}</div>
-                                </div>
-                                <div>
-                                    <div class="text-[10px] font-bold text-[#8A958F] tracking-wider uppercase mb-0.5">WAKTU MASUK</div>
-                                    <div class="text-xs font-extrabold text-[#102D21]">
-                                        {{ $ticket->check_in_at ? $ticket->check_in_at->setTimezone('Asia/Jakarta')->translatedFormat('d M, H:i') : now()->format('d M, H:i') }}
-                                    </div>
-                                </div>
-                                <div>
-                                    <div class="text-[10px] font-bold text-[#8A958F] tracking-wider uppercase mb-0.5">STATUS</div>
-                                    <div class="text-xs font-extrabold text-[#173F2E] uppercase">AKTIF</div>
-                                </div>
-                            </div>
+                            <table style="width: 100%; border-collapse: collapse; margin-bottom: 4px;">
+                                <tbody>
+                                    <tr>
+                                        <td style="width: 50%; padding: 4px 6px 4px 0; vertical-align: top; text-align: left;">
+                                            <div style="font-size: 9px; font-weight: bold; color: #8A958F; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px;">NOMOR TIKET</div>
+                                            <div style="font-family: monospace; font-size: 11px; font-weight: 800; color: #102D21;">{{ $ticket->ticket_number }}</div>
+                                        </td>
+                                        <td style="width: 50%; padding: 4px 0 4px 6px; vertical-align: top; text-align: left;">
+                                            <div style="font-size: 9px; font-weight: bold; color: #8A958F; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px;">PLAT NOMOR</div>
+                                            <div style="font-size: 12px; font-weight: 800; color: #102D21;">{{ $ticket->license_plate }}</div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 4px 6px 4px 0; vertical-align: top; text-align: left;">
+                                            <div style="font-size: 9px; font-weight: bold; color: #8A958F; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px;">JENIS KENDARAAN</div>
+                                            <div style="font-size: 11px; font-weight: 800; color: #102D21;">{{ $ticket->vehicle_type === 'car' ? 'Mobil' : 'Motor' }}</div>
+                                        </td>
+                                        <td style="padding: 4px 0 4px 6px; vertical-align: top; text-align: left;">
+                                            <div style="font-size: 9px; font-weight: bold; color: #8A958F; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px;">AREA PARKIR</div>
+                                            <div style="font-size: 11px; font-weight: 800; color: #102D21;">{{ $ticket->parkingArea->name ?? 'A-02' }}</div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 4px 6px 4px 0; vertical-align: top; text-align: left;">
+                                            <div style="font-size: 9px; font-weight: bold; color: #8A958F; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px;">WAKTU MASUK</div>
+                                            <div style="font-size: 11px; font-weight: 800; color: #102D21;">
+                                                {{ $ticket->check_in_at ? $ticket->check_in_at->setTimezone('Asia/Jakarta')->translatedFormat('d M, H:i') : now()->format('d M, H:i') }}
+                                            </div>
+                                        </td>
+                                        <td style="padding: 4px 0 4px 6px; vertical-align: top; text-align: left;">
+                                            <div style="font-size: 9px; font-weight: bold; color: #8A958F; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px;">STATUS</div>
+                                            <div style="font-size: 11px; font-weight: 800; color: #173F2E; text-transform: uppercase;">AKTIF</div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
 
                             {{-- Perforasi Garis Putus-Putus --}}
-                            <div class="border-t border-dashed border-[#D9DFDC] my-4"></div>
+                            <div class="border-t border-dashed border-[#D9DFDC] my-3"></div>
 
                             {{-- Area QR Code 2D & Barcode 1D Code128 Nyata --}}
-                            <div class="flex flex-col items-center justify-center pt-2 pb-2 bg-white">
+                            <div class="flex flex-col items-center justify-center pt-1 pb-1 bg-white">
                                 {{-- QR Code 2D (Bebas pantulan layar, mudah & cepat dibaca webcam laptop) --}}
-                                <div class="bg-white p-3 border border-[#E0E5E2] rounded-xl shadow-xs mb-3 flex items-center justify-center">
+                                <div class="bg-white p-2.5 border border-[#E0E5E2] rounded-xl shadow-xs mb-2 flex items-center justify-center">
                                     <div id="ticketQrcode"></div>
                                 </div>
 
@@ -352,18 +360,19 @@
         window.print();
     }
 
-    // Download Tiket sebagai File PDF
+    // Download Tiket sebagai File PDF (1 Halaman Penuh Presisi)
     function downloadTicketPdf() {
         const receipt = document.getElementById('ticketReceipt');
         if (!receipt) return;
 
         const ticketNo = "{{ isset($ticket) ? $ticket->ticket_number : 'PP' }}";
         const opt = {
-            margin: 8,
+            margin: [6, 6, 6, 6],
             filename: `Tiket-${ticketNo}.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 3, useCORS: true },
-            jsPDF: { unit: 'mm', format: [95, 175], orientation: 'portrait' }
+            html2canvas: { scale: 2.5, useCORS: true, logging: false },
+            jsPDF: { unit: 'mm', format: [95, 195], orientation: 'portrait' },
+            pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
         };
 
         html2pdf().set(opt).from(receipt).save();
