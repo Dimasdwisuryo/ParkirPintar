@@ -137,7 +137,7 @@
                 </a>
 
                 {{-- 5. Laporan --}}
-                <a href="{{ route('reports.occupancy') }}"
+                <a href="{{ route('reports.revenue') }}"
                    class="flex items-center gap-3.5 px-4 py-3 rounded-2xl text-xs font-bold transition {{ request()->routeIs('reports.*') ? 'bg-[#D5F067] text-[#102D21] shadow-xs' : 'text-[#8A958F] hover:text-white hover:bg-[#173F2E]' }}">
                     <i class="bi bi-bar-chart-fill text-base {{ request()->routeIs('reports.*') ? 'text-[#102D21]' : 'text-[#8A958F]' }}"></i>
                     <span>Laporan</span>

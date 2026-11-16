@@ -41,10 +41,12 @@ Route::prefix('check-out')->name('check-out.')->group(function () {
 
 // ─── Modul 5: Laporan Parkir (FR-20 s/d FR-24) ───────────────────────────────
 Route::prefix('reports')->name('reports.')->group(function () {
+    Route::get('/', [ReportController::class, 'revenue'])->name('index');
     Route::get('/occupancy', [ReportController::class, 'occupancy'])->name('occupancy');   // FR-20
     Route::get('/active', [ReportController::class, 'active'])->name('active');             // FR-21
     Route::get('/history', [ReportController::class, 'history'])->name('history');          // FR-22
     Route::get('/revenue', [ReportController::class, 'revenue'])->name('revenue');          // FR-23 & FR-24
+    Route::get('/export', [ReportController::class, 'export'])->name('export');
 });
 
 // ─── Modul 6: Healthcheck (FR-25 s/d FR-27) ──────────────────────────────────
