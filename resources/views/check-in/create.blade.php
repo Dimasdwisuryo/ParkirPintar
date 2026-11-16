@@ -234,8 +234,14 @@
                             {{-- Perforasi Garis Putus-Putus --}}
                             <div class="border-t border-dashed border-[#D9DFDC] my-4"></div>
 
-                            {{-- Area Barcode Code128 Nyata --}}
-                            <div class="flex flex-col items-center justify-center pt-1 pb-1 bg-white">
+                            {{-- Area QR Code 2D & Barcode 1D Code128 Nyata --}}
+                            <div class="flex flex-col items-center justify-center pt-2 pb-2 bg-white">
+                                {{-- QR Code 2D (Bebas pantulan layar, mudah & cepat dibaca webcam laptop) --}}
+                                <div class="bg-white p-3 border border-[#E0E5E2] rounded-xl shadow-xs mb-3 flex items-center justify-center">
+                                    <div id="ticketQrcode"></div>
+                                </div>
+
+                                {{-- Barcode 1D Code128 --}}
                                 <svg id="ticketBarcode" class="max-w-full" style="shape-rendering: crispEdges;"></svg>
                                 <div class="font-mono text-[11px] font-bold tracking-[0.2em] text-[#102D21] mt-1 text-center">
                                     {{ $ticket->ticket_number }}
@@ -267,6 +273,9 @@
 @endsection
 
 @push('scripts')
+{{-- qrcodejs CDN untuk 2D QR Code Karcis --}}
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+
 {{-- JsBarcode CDN untuk 1D Code128 Barcode --}}
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 
@@ -354,7 +363,7 @@
             filename: `Tiket-${ticketNo}.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: { scale: 3, useCORS: true },
-            jsPDF: { unit: 'mm', format: [95, 145], orientation: 'portrait' }
+            jsPDF: { unit: 'mm', format: [95, 175], orientation: 'portrait' }
         };
 
         html2pdf().set(opt).from(receipt).save();
@@ -365,6 +374,19 @@
         toggleSubmitButton();
 
         @if(isset($ticket))
+            // Render QR Code 2D Nyata Menggunakan qrcodejs (String Murni ticket_number)
+            const qrElement = document.getElementById('ticketQrcode');
+            if (qrElement && typeof QRCode !== 'undefined') {
+                new QRCode(qrElement, {
+                    text: "{{ trim($ticket->ticket_number) }}",
+                    width: 125,
+                    height: 125,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.M
+                });
+            }
+
             // Render Code128 Barcode Nyata Menggunakan JsBarcode
             const barcodeElement = document.getElementById('ticketBarcode');
             if (barcodeElement && typeof JsBarcode !== 'undefined') {
@@ -372,9 +394,9 @@
                     format: "CODE128",
                     lineColor: "#000000",
                     width: 2,
-                    height: 56,
+                    height: 48,
                     displayValue: false,
-                    margin: 16,
+                    margin: 8,
                     background: "#ffffff"
                 });
             }
