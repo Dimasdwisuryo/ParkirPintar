@@ -368,13 +368,13 @@
             // Render Code128 Barcode Nyata Menggunakan JsBarcode
             const barcodeElement = document.getElementById('ticketBarcode');
             if (barcodeElement && typeof JsBarcode !== 'undefined') {
-                JsBarcode(barcodeElement, "{{ $ticket->ticket_number }}", {
+                JsBarcode(barcodeElement, "{{ trim($ticket->ticket_number) }}", {
                     format: "CODE128",
                     lineColor: "#000000",
                     width: 2,
                     height: 48,
                     displayValue: false,
-                    margin: 4,
+                    margin: 12,
                     background: "#ffffff"
                 });
             }
