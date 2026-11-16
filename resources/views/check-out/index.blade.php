@@ -54,6 +54,15 @@
 
                 {{-- Area Kamera WebCam --}}
                 <div id="cameraContainer" class="hidden mb-3">
+                    {{-- Status scan success banner --}}
+                    <div id="scanSuccessBanner" class="hidden p-3 bg-[#EDF5D6] border border-[#B8CF54] rounded-xl text-center mb-3">
+                        <div class="text-xs font-bold text-[#173F2E] flex items-center justify-center gap-1.5">
+                            <i class="bi bi-check-circle-fill text-[#536B20]"></i>
+                            <span>Barcode terdeteksi: <strong id="detectedCodeText"></strong></span>
+                        </div>
+                        <p class="text-[10px] text-[#536B20] mt-0.5">Memuat rincian tagihan pembayaran...</p>
+                    </div>
+
                     {{-- Loading Indicator saat kamera menginisialisasi --}}
                     <div id="cameraLoading" class="p-6 text-center bg-[#FAFBFA] rounded-xl border border-[#E0E5E2] mb-3">
                         <div class="w-8 h-8 border-3 border-[#173F2E] border-t-transparent rounded-full animate-spin mx-auto mb-2.5"></div>
@@ -69,8 +78,20 @@
                         <p id="cameraErrorMsg" class="text-[11px] text-[#102D21] leading-relaxed"></p>
                     </div>
 
-                    {{-- Viewfinder Element html5-qrcode --}}
-                    <div id="cameraReader" class="w-full max-w-sm mx-auto overflow-hidden rounded-xl"></div>
+                    {{-- Viewfinder Element html5-qrcode with visual scan overlay --}}
+                    <div class="relative w-full max-w-sm mx-auto overflow-hidden rounded-xl border border-[#E0E5E2] bg-black">
+                        <div id="cameraReader" class="w-full"></div>
+
+                        {{-- Visual Target / Aiming Guide Box (tanpa meng-crop frame decoder) --}}
+                        <div id="cameraScanGuide" class="pointer-events-none absolute inset-0 flex items-center justify-center p-4">
+                            <div class="w-full max-w-[320px] h-28 border-2 border-[#D5F067]/80 rounded-xl relative flex items-center justify-center">
+                                <div class="w-full h-0.5 bg-[#EA6546] shadow-[0_0_8px_#EA6546] animate-pulse"></div>
+                                <span class="absolute -bottom-6 text-[10px] font-bold text-white bg-black/60 px-2 py-0.5 rounded-full">
+                                    Posisikan barcode sejajar garis merah
+                                </span>
+                            </div>
+                        </div>
+                    </div>
 
                     <button type="button"
                             id="btnStopCamera"
@@ -505,17 +526,49 @@
         });
     }
 
-    // Callback Saat Barcode Berhasil Terbaca
+    let nativeDetectorInterval = null;
+
+    // Audio Feedback Bip Barcode Scanner
+    function playScanBeep() {
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContext) return;
+            const ctx = new AudioContext();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(1400, ctx.currentTime);
+            gain.gain.setValueAtTime(0.2, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.12);
+        } catch (e) {}
+    }
+
+    // Callback Saat Barcode Berhasil Terbaca (Langsung Masuk ke Pembayaran)
     function onScanSuccess(decodedText) {
         if (!decodedText || isProcessingScan) return;
         isProcessingScan = true;
 
         const ticketCode = decodedText.trim().toUpperCase();
 
-        // 1. Hentikan kamera segera agar tidak memicu scan berulang kali
+        // 1. Suara bip scanner
+        playScanBeep();
+
+        // 2. Tampilkan notifikasi visual berhasil
+        const successBanner = document.getElementById('scanSuccessBanner');
+        const detectedText = document.getElementById('detectedCodeText');
+        if (successBanner && detectedText) {
+            detectedText.innerText = ticketCode;
+            successBanner.classList.remove('hidden');
+        }
+
+        // 3. Hentikan kamera segera agar tidak memicu scan berulang kali
         stopCameraScanner();
 
-        // 2 & 3. Masukkan kode tiket ke dalam input manual
+        // 4. Masukkan kode tiket ke dalam input manual
         const searchInput = document.getElementById('searchInput');
         const searchForm = document.getElementById('searchForm');
 
@@ -523,23 +576,51 @@
             searchInput.value = ticketCode;
         }
 
-        // 4. Langsung submit form pencarian secara otomatis
+        // 5. Langsung submit form pencarian otomatis untuk memunculkan rincian tagihan & pembayaran
         if (searchForm) {
             searchForm.submit();
         }
     }
 
-    // Buka Scanner Kamera (Mendukung Kamera Laptop, USB, HP, Barcode 1D & QR)
+    // Engine Paralel: Native Hardware-Accelerated BarcodeDetector (Chromium C++)
+    function startNativeDetectorLoop() {
+        if (!('BarcodeDetector' in window)) return;
+        try {
+            const detector = new BarcodeDetector({
+                formats: ['code_128', 'code_39', 'qr_code', 'ean_13', 'upc_a']
+            });
+
+            nativeDetectorInterval = setInterval(async () => {
+                if (isProcessingScan) return;
+                const video = document.querySelector('#cameraReader video');
+                if (video && video.readyState >= 2) {
+                    try {
+                        const barcodes = await detector.detect(video);
+                        if (barcodes && barcodes.length > 0) {
+                            const val = barcodes[0].rawValue;
+                            if (val) {
+                                onScanSuccess(val);
+                            }
+                        }
+                    } catch (e) {}
+                }
+            }, 80);
+        } catch (e) {}
+    }
+
+    // Buka Scanner Kamera (Mendukung Kamera Laptop, USB, HP, Barcode 1D Code128 & QR)
     function startCameraScanner() {
         const container = document.getElementById('cameraContainer');
         const btnStart = document.getElementById('btnStartCamera');
         const loadingBox = document.getElementById('cameraLoading');
         const errorBox = document.getElementById('cameraError');
+        const successBanner = document.getElementById('scanSuccessBanner');
 
         if (container) container.classList.remove('hidden');
         if (btnStart) btnStart.classList.add('hidden');
         if (loadingBox) loadingBox.classList.remove('hidden');
         if (errorBox) errorBox.classList.add('hidden');
+        if (successBanner) successBanner.classList.add('hidden');
 
         isProcessingScan = false;
 
@@ -550,12 +631,7 @@
         }
 
         // Bersihkan instance lama jika ada
-        if (html5QrCode) {
-            try {
-                html5QrCode.clear();
-            } catch (e) {}
-            html5QrCode = null;
-        }
+        stopCameraScanner();
 
         // Format barcode yang didukung
         const formatsToSupport = typeof Html5QrcodeSupportedFormats !== 'undefined'
@@ -579,21 +655,17 @@
 
         html5QrCode = new Html5Qrcode("cameraReader", scannerConfig);
 
-        // Box persegi panjang horizontal melebar untuk barcode 1D Code128
+        // PENTING: Tanpa parameter qrbox agar decoder memproses FULL FRAME gambar
+        // Hal ini menjaga Quiet Zone (margin putih kiri-kanan) barcode Code128 tidak terpotong!
         const scanConfig = {
-            fps: 15,
-            qrbox: (viewfinderWidth, viewfinderHeight) => {
-                const width = Math.min(320, Math.max(200, Math.floor(viewfinderWidth * 0.88)));
-                const height = Math.min(140, Math.max(80, Math.floor(viewfinderHeight * 0.6)));
-                return { width: width, height: height };
-            },
-            aspectRatio: 1.777778
+            fps: 10,
+            aspectRatio: 1.777778,
+            disableFlip: false
         };
 
         // Deteksi kamera fisik (Webcam Laptop, USB Camera, atau Kamera HP)
         Html5Qrcode.getCameras().then(devices => {
             if (devices && devices.length > 0) {
-                // Utamakan kamera belakang jika ada (misal di HP), atau gunakan device pertama (laptop/webcam)
                 const rearCamera = devices.find(d => /back|rear|environment|belakang/i.test(d.label));
                 const targetCameraId = rearCamera ? rearCamera.id : devices[0].id;
 
@@ -604,6 +676,7 @@
                     () => {}
                 ).then(() => {
                     if (loadingBox) loadingBox.classList.add('hidden');
+                    startNativeDetectorLoop();
                 }).catch(() => {
                     startFallback(scanConfig);
                 });
@@ -617,7 +690,6 @@
 
     function startFallback(scanConfig) {
         const loadingBox = document.getElementById('cameraLoading');
-        // Coba mode generic facingMode: 'user' (sangat cocok untuk kamera webcam laptop)
         html5QrCode.start(
             { facingMode: "user" },
             scanConfig,
@@ -625,8 +697,8 @@
             () => {}
         ).then(() => {
             if (loadingBox) loadingBox.classList.add('hidden');
+            startNativeDetectorLoop();
         }).catch(() => {
-            // Coba dengan boolean true (default camera stream)
             html5QrCode.start(
                 true,
                 scanConfig,
@@ -634,8 +706,9 @@
                 () => {}
             ).then(() => {
                 if (loadingBox) loadingBox.classList.add('hidden');
+                startNativeDetectorLoop();
             }).catch(err => {
-                showCameraError("Kamera tidak dapat diakses (" + (err.message || err) + "). Pastikan Anda telah memberikan izin kamera pada peramban dan kamera tidak sedang dipakai aplikasi lain (Zoom, Teams, dsb).");
+                showCameraError("Kamera tidak dapat diakses (" + (err.message || err) + "). Pastikan izin kamera telah diberikan dan tidak sedang dipakai aplikasi lain (Zoom, Teams, dsb).");
             });
         });
     }
@@ -652,14 +725,22 @@
 
     // Tutup Scanner Kamera
     function stopCameraScanner() {
+        if (nativeDetectorInterval) {
+            clearInterval(nativeDetectorInterval);
+            nativeDetectorInterval = null;
+        }
         if (html5QrCode) {
-            html5QrCode.stop().then(() => {
-                html5QrCode.clear();
+            try {
+                html5QrCode.stop().then(() => {
+                    try { html5QrCode.clear(); } catch(e) {}
+                    html5QrCode = null;
+                }).catch(() => {
+                    try { html5QrCode.clear(); } catch(e) {}
+                    html5QrCode = null;
+                });
+            } catch(e) {
                 html5QrCode = null;
-                isProcessingScan = false;
-            }).catch(() => {
-                isProcessingScan = false;
-            });
+            }
         }
         const container = document.getElementById('cameraContainer');
         const btnStart = document.getElementById('btnStartCamera');
