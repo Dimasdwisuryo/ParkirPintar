@@ -60,14 +60,14 @@
                             <i class="bi bi-check-circle-fill text-[#536B20]"></i>
                             <span>Barcode terdeteksi: <strong id="detectedCodeText"></strong></span>
                         </div>
-                        <p class="text-[10px] text-[#536B20] mt-0.5">Memuat rincian tagihan pembayaran...</p>
+                        <p class="text-[10px] text-[#536B20] mt-0.5">Membuka rincian tiket & pembayaran...</p>
                     </div>
 
                     {{-- Loading Indicator saat kamera menginisialisasi --}}
-                    <div id="cameraLoading" class="p-6 text-center bg-[#FAFBFA] rounded-xl border border-[#E0E5E2] mb-3">
-                        <div class="w-8 h-8 border-3 border-[#173F2E] border-t-transparent rounded-full animate-spin mx-auto mb-2.5"></div>
-                        <p class="text-xs font-bold text-[#102D21]">Menghubungkan ke kamera...</p>
-                        <p class="text-[11px] text-[#8A958F] mt-0.5">Pastikan memilih <strong>Izinkan (Allow)</strong> saat peramban meminta izin kamera.</p>
+                    <div id="cameraLoading" class="p-5 text-center bg-[#FAFBFA] rounded-xl border border-[#E0E5E2] mb-3">
+                        <div class="w-7 h-7 border-3 border-[#173F2E] border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                        <p class="text-xs font-bold text-[#102D21]">Mengakses kamera...</p>
+                        <p class="text-[11px] text-[#8A958F] mt-0.5">Izinkan akses kamera di peramban jika muncul konfirmasi.</p>
                     </div>
 
                     {{-- Error Notice jika izin diblokir atau kamera tidak ada --}}
@@ -78,16 +78,28 @@
                         <p id="cameraErrorMsg" class="text-[11px] text-[#102D21] leading-relaxed"></p>
                     </div>
 
-                    {{-- Viewfinder Element html5-qrcode with visual scan overlay --}}
-                    <div class="relative w-full max-w-sm mx-auto overflow-hidden rounded-xl border border-[#E0E5E2] bg-black">
-                        <div id="cameraReader" class="w-full"></div>
+                    {{-- Video Preview Viewfinder Langsung --}}
+                    <div id="cameraWrapper" class="relative w-full max-w-sm mx-auto overflow-hidden rounded-xl border-2 border-[#173F2E]/20 bg-black aspect-video flex items-center justify-center shadow-inner">
+                        {{-- Direct Native HTML5 Video Element --}}
+                        <video id="cameraVideo" class="w-full h-full object-cover" autoplay playsinline muted></video>
 
-                        {{-- Visual Target / Aiming Guide Box (tanpa meng-crop frame decoder) --}}
-                        <div id="cameraScanGuide" class="pointer-events-none absolute inset-0 flex items-center justify-center p-4">
-                            <div class="w-full max-w-[320px] h-28 border-2 border-[#D5F067]/80 rounded-xl relative flex items-center justify-center">
-                                <div class="w-full h-0.5 bg-[#EA6546] shadow-[0_0_8px_#EA6546] animate-pulse"></div>
-                                <span class="absolute -bottom-6 text-[10px] font-bold text-white bg-black/60 px-2 py-0.5 rounded-full">
-                                    Posisikan barcode sejajar garis merah
+                        {{-- Hidden canvas for image analysis --}}
+                        <canvas id="scannerCanvas" class="hidden"></canvas>
+
+                        {{-- Visual Target / Aiming Guide Box --}}
+                        <div id="cameraScanGuide" class="pointer-events-none absolute inset-0 flex items-center justify-center p-3">
+                            <div class="w-full max-w-[280px] h-24 border-2 border-[#D5F067] rounded-xl relative flex items-center justify-center shadow-[0_0_15px_rgba(213,240,103,0.3)]">
+                                {{-- Corner indicators --}}
+                                <div class="absolute -top-1 -left-1 w-3 h-3 border-t-2 border-l-2 border-white"></div>
+                                <div class="absolute -top-1 -right-1 w-3 h-3 border-t-2 border-r-2 border-white"></div>
+                                <div class="absolute -bottom-1 -left-1 w-3 h-3 border-b-2 border-l-2 border-white"></div>
+                                <div class="absolute -bottom-1 -right-1 w-3 h-3 border-b-2 border-r-2 border-white"></div>
+
+                                {{-- Red Laser Line --}}
+                                <div class="w-full h-0.5 bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.9)] animate-pulse"></div>
+
+                                <span class="absolute -bottom-5 text-[9px] font-bold text-white bg-black/75 px-2 py-0.5 rounded-full whitespace-nowrap">
+                                    Arahkan garis merah ke barcode tiket
                                 </span>
                             </div>
                         </div>
@@ -427,14 +439,20 @@
 @endsection
 
 @push('scripts')
-{{-- Library html5-qrcode untuk kamera scanner barcode / QR --}}
-<script src="https://unpkg.com/html5-qrcode"></script>
+{{-- Library ZXing untuk pemindaian Barcode 1D (Code 128, Code 39) & 2D (QR Code) --}}
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
+
+{{-- Library html5-qrcode untuk kompatibilitas kamera tambahan --}}
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
 {{-- Library qrcodejs untuk render QRIS dinamis --}}
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
 <script>
-    let html5QrCode = null;
+    let activeMediaStream = null;
+    let zxingReader = null;
+    let nativeDetectorInterval = null;
+    let canvasScanInterval = null;
     let isProcessingScan = false;
     const totalFee = {{ isset($previewData) ? (int)$previewData['fee'] : 0 }};
 
@@ -526,8 +544,6 @@
         });
     }
 
-    let nativeDetectorInterval = null;
-
     // Audio Feedback Bip Barcode Scanner
     function playScanBeep() {
         try {
@@ -565,8 +581,8 @@
             successBanner.classList.remove('hidden');
         }
 
-        // 3. Hentikan kamera segera agar tidak memicu scan berulang kali
-        stopCameraScanner();
+        // 3. Matikan resource kamera segera
+        cleanupCameraResources();
 
         // 4. Masukkan kode tiket ke dalam input manual
         const searchInput = document.getElementById('searchInput');
@@ -577,44 +593,137 @@
         }
 
         // 5. Langsung submit form pencarian otomatis untuk memunculkan rincian tagihan & pembayaran
-        if (searchForm) {
-            searchForm.submit();
+        setTimeout(() => {
+            if (searchForm) {
+                searchForm.submit();
+            }
+        }, 250);
+    }
+
+    // Bersihkan Resource Kamera tanpa mengubah tampilan UI
+    function cleanupCameraResources() {
+        if (nativeDetectorInterval) {
+            clearInterval(nativeDetectorInterval);
+            nativeDetectorInterval = null;
+        }
+        if (canvasScanInterval) {
+            clearInterval(canvasScanInterval);
+            canvasScanInterval = null;
+        }
+        if (zxingReader) {
+            try {
+                zxingReader.reset();
+            } catch (e) {}
+            zxingReader = null;
+        }
+        if (activeMediaStream) {
+            try {
+                activeMediaStream.getTracks().forEach(track => {
+                    track.stop();
+                });
+            } catch (e) {}
+            activeMediaStream = null;
+        }
+        const video = document.getElementById('cameraVideo');
+        if (video) {
+            video.srcObject = null;
         }
     }
 
-    // Engine Paralel: Native Hardware-Accelerated BarcodeDetector (Chromium C++)
-    function startNativeDetectorLoop() {
+    // Engine 1: Native Chromium BarcodeDetector (C++ hardware accelerated)
+    async function initNativeDetector(video) {
         if (!('BarcodeDetector' in window)) return;
         try {
-            const detector = new BarcodeDetector({
-                formats: ['code_128', 'code_39', 'qr_code', 'ean_13', 'upc_a']
-            });
+            const supported = await BarcodeDetector.getSupportedFormats();
+            const desired = ['code_128', 'code_39', 'qr_code', 'ean_13', 'upc_a'].filter(f => supported.includes(f));
+            if (desired.length === 0) return;
 
+            const detector = new BarcodeDetector({ formats: desired });
             nativeDetectorInterval = setInterval(async () => {
-                if (isProcessingScan) return;
-                const video = document.querySelector('#cameraReader video');
-                if (video && video.readyState >= 2) {
-                    try {
-                        const barcodes = await detector.detect(video);
-                        if (barcodes && barcodes.length > 0) {
-                            const val = barcodes[0].rawValue;
-                            if (val) {
-                                onScanSuccess(val);
+                if (isProcessingScan || !video || video.readyState < 2) return;
+                try {
+                    const barcodes = await detector.detect(video);
+                    if (barcodes && barcodes.length > 0) {
+                        for (const bc of barcodes) {
+                            if (bc.rawValue && bc.rawValue.trim().length >= 4) {
+                                onScanSuccess(bc.rawValue);
+                                return;
                             }
                         }
-                    } catch (e) {}
-                }
+                    }
+                } catch (e) {}
             }, 80);
         } catch (e) {}
     }
 
-    // Buka Scanner Kamera (Mendukung Kamera Laptop, USB, HP, Barcode 1D Code128 & QR)
-    function startCameraScanner() {
+    // Engine 2: ZXing MultiFormat Reader (Sangat akurat untuk Code 128 dari kertas/karcis)
+    function initZXingReader(video) {
+        if (typeof ZXing === 'undefined') return;
+        try {
+            const hints = new Map();
+            hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+                ZXing.BarcodeFormat.CODE_128,
+                ZXing.BarcodeFormat.QR_CODE,
+                ZXing.BarcodeFormat.CODE_39,
+                ZXing.BarcodeFormat.EAN_13,
+                ZXing.BarcodeFormat.UPC_A
+            ]);
+            hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+
+            zxingReader = new ZXing.BrowserMultiFormatReader(hints, 100);
+            zxingReader.decodeFromVideoElement(video, (result, err) => {
+                if (isProcessingScan) return;
+                if (result && result.getText()) {
+                    onScanSuccess(result.getText());
+                }
+            });
+        } catch (e) {}
+    }
+
+    // Engine 3: High-contrast canvas preprocessor (Optimal untuk pembacaan barcode dari layar HP / glare)
+    function initCanvasScanner(video) {
+        const canvas = document.getElementById('scannerCanvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+        canvasScanInterval = setInterval(() => {
+            if (isProcessingScan || !video || video.readyState < 2 || !zxingReader) return;
+            try {
+                const vw = video.videoWidth;
+                const vh = video.videoHeight;
+                if (!vw || !vh) return;
+
+                // Crop area tengah viewfinder
+                const cropW = Math.floor(vw * 0.85);
+                const cropH = Math.floor(vh * 0.40);
+                const cropX = Math.floor((vw - cropW) / 2);
+                const cropY = Math.floor((vh - cropH) / 2);
+
+                canvas.width = cropW;
+                canvas.height = cropH;
+
+                // Filter kontras tinggi untuk memisahkan garis barcode hitam dari putih
+                ctx.filter = 'contrast(1.6) brightness(1.1) grayscale(1)';
+                ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+
+                try {
+                    const result = zxingReader.decode(canvas);
+                    if (result && result.getText()) {
+                        onScanSuccess(result.getText());
+                    }
+                } catch (e) {}
+            } catch (e) {}
+        }, 150);
+    }
+
+    // Buka Scanner Kamera (Langsung tampil di elemen <video> dengan fallback resolusi HD)
+    async function startCameraScanner() {
         const container = document.getElementById('cameraContainer');
         const btnStart = document.getElementById('btnStartCamera');
         const loadingBox = document.getElementById('cameraLoading');
         const errorBox = document.getElementById('cameraError');
         const successBanner = document.getElementById('scanSuccessBanner');
+        const video = document.getElementById('cameraVideo');
 
         if (container) container.classList.remove('hidden');
         if (btnStart) btnStart.classList.add('hidden');
@@ -624,93 +733,54 @@
 
         isProcessingScan = false;
 
+        // Bersihkan koneksi kamera lama jika ada
+        cleanupCameraResources();
+
         // Cek dukungan MediaDevices
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             showCameraError("Akses kamera memerlukan koneksi aman. Silakan buka aplikasi melalui http://localhost:8000 atau http://127.0.0.1:8000.");
             return;
         }
 
-        // Bersihkan instance lama jika ada
-        stopCameraScanner();
+        let stream = null;
+        const constraintOptions = [
+            // 1. Kamera belakang ideal dengan resolusi 1280x720 (Code 128 butuh resolusi tajam)
+            { video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } } },
+            // 2. Kamera depan / Webcam laptop 1280x720
+            { video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } },
+            // 3. Resolusi standar
+            { video: { width: { ideal: 1280 }, height: { ideal: 720 } } },
+            // 4. Default video perangkat
+            { video: true }
+        ];
 
-        // Format barcode yang didukung
-        const formatsToSupport = typeof Html5QrcodeSupportedFormats !== 'undefined'
-            ? [
-                Html5QrcodeSupportedFormats.CODE_128,
-                Html5QrcodeSupportedFormats.QR_CODE,
-                Html5QrcodeSupportedFormats.CODE_39,
-                Html5QrcodeSupportedFormats.EAN_13,
-                Html5QrcodeSupportedFormats.UPC_A,
-                Html5QrcodeSupportedFormats.UPC_E,
-            ]
-            : undefined;
+        for (const constraints of constraintOptions) {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+                if (stream) break;
+            } catch (e) {}
+        }
 
-        const scannerConfig = {
-            formatsToSupport: formatsToSupport,
-            experimentalFeatures: {
-                useBarCodeDetectorIfSupported: true
-            },
-            verbose: false
-        };
+        if (!stream) {
+            showCameraError("Kamera tidak dapat diakses. Pastikan izin kamera telah diberikan di peramban dan tidak sedang digunakan aplikasi lain (Zoom, Teams, dsb).");
+            return;
+        }
 
-        html5QrCode = new Html5Qrcode("cameraReader", scannerConfig);
+        activeMediaStream = stream;
 
-        // PENTING: Tanpa parameter qrbox agar decoder memproses FULL FRAME gambar
-        // Hal ini menjaga Quiet Zone (margin putih kiri-kanan) barcode Code128 tidak terpotong!
-        const scanConfig = {
-            fps: 10,
-            aspectRatio: 1.777778,
-            disableFlip: false
-        };
+        if (video) {
+            video.srcObject = stream;
+            try {
+                await video.play();
+            } catch (e) {}
+        }
 
-        // Deteksi kamera fisik (Webcam Laptop, USB Camera, atau Kamera HP)
-        Html5Qrcode.getCameras().then(devices => {
-            if (devices && devices.length > 0) {
-                const rearCamera = devices.find(d => /back|rear|environment|belakang/i.test(d.label));
-                const targetCameraId = rearCamera ? rearCamera.id : devices[0].id;
+        if (loadingBox) loadingBox.classList.add('hidden');
 
-                html5QrCode.start(
-                    targetCameraId,
-                    scanConfig,
-                    onScanSuccess,
-                    () => {}
-                ).then(() => {
-                    if (loadingBox) loadingBox.classList.add('hidden');
-                    startNativeDetectorLoop();
-                }).catch(() => {
-                    startFallback(scanConfig);
-                });
-            } else {
-                startFallback(scanConfig);
-            }
-        }).catch(() => {
-            startFallback(scanConfig);
-        });
-    }
-
-    function startFallback(scanConfig) {
-        const loadingBox = document.getElementById('cameraLoading');
-        html5QrCode.start(
-            { facingMode: "user" },
-            scanConfig,
-            onScanSuccess,
-            () => {}
-        ).then(() => {
-            if (loadingBox) loadingBox.classList.add('hidden');
-            startNativeDetectorLoop();
-        }).catch(() => {
-            html5QrCode.start(
-                true,
-                scanConfig,
-                onScanSuccess,
-                () => {}
-            ).then(() => {
-                if (loadingBox) loadingBox.classList.add('hidden');
-                startNativeDetectorLoop();
-            }).catch(err => {
-                showCameraError("Kamera tidak dapat diakses (" + (err.message || err) + "). Pastikan izin kamera telah diberikan dan tidak sedang dipakai aplikasi lain (Zoom, Teams, dsb).");
-            });
-        });
+        // Jalankan engine scanner
+        initNativeDetector(video);
+        initZXingReader(video);
+        initCanvasScanner(video);
     }
 
     function showCameraError(msg) {
@@ -725,27 +795,17 @@
 
     // Tutup Scanner Kamera
     function stopCameraScanner() {
-        if (nativeDetectorInterval) {
-            clearInterval(nativeDetectorInterval);
-            nativeDetectorInterval = null;
-        }
-        if (html5QrCode) {
-            try {
-                html5QrCode.stop().then(() => {
-                    try { html5QrCode.clear(); } catch(e) {}
-                    html5QrCode = null;
-                }).catch(() => {
-                    try { html5QrCode.clear(); } catch(e) {}
-                    html5QrCode = null;
-                });
-            } catch(e) {
-                html5QrCode = null;
-            }
-        }
+        cleanupCameraResources();
+
         const container = document.getElementById('cameraContainer');
         const btnStart = document.getElementById('btnStartCamera');
+        const loadingBox = document.getElementById('cameraLoading');
+        const errorBox = document.getElementById('cameraError');
+
         if (container) container.classList.add('hidden');
         if (btnStart) btnStart.classList.remove('hidden');
+        if (loadingBox) loadingBox.classList.add('hidden');
+        if (errorBox) errorBox.classList.add('hidden');
     }
 
     document.addEventListener('DOMContentLoaded', function () {
