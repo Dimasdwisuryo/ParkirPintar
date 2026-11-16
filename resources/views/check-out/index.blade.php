@@ -385,6 +385,7 @@
 
 <script>
     let html5QrCode = null;
+    let isProcessingScan = false;
     const totalFee = {{ isset($previewData) ? (int)$previewData['fee'] : 0 }};
 
     // Fungsi Pilihan Metode Pembayaran
@@ -475,34 +476,94 @@
         });
     }
 
-    // Buka Scanner Kamera
+    // Callback Saat Barcode Berhasil Terbaca
+    function onScanSuccess(decodedText) {
+        if (!decodedText || isProcessingScan) return;
+        isProcessingScan = true;
+
+        const ticketCode = decodedText.trim().toUpperCase();
+
+        // 1. Hentikan kamera segera agar tidak memicu scan berulang kali
+        stopCameraScanner();
+
+        // 2 & 3. Masukkan kode tiket ke dalam input manual
+        const searchInput = document.getElementById('searchInput');
+        const searchForm = document.getElementById('searchForm');
+
+        if (searchInput) {
+            searchInput.value = ticketCode;
+        }
+
+        // 4. Langsung submit form pencarian secara otomatis
+        if (searchForm) {
+            searchForm.submit();
+        }
+    }
+
+    // Buka Scanner Kamera (Format 1D Code128 & QR)
     function startCameraScanner() {
         const container = document.getElementById('cameraContainer');
         const btnStart = document.getElementById('btnStartCamera');
-        container.classList.remove('hidden');
-        btnStart.classList.add('hidden');
+        if (container) container.classList.remove('hidden');
+        if (btnStart) btnStart.classList.add('hidden');
 
-        html5QrCode = new Html5Qrcode("cameraReader");
-        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+        isProcessingScan = false;
+
+        // 1. Format eksplisit: Code128, QR, Code39, EAN13 + BarcodeDetector
+        const formatsToSupport = typeof Html5QrcodeSupportedFormats !== 'undefined'
+            ? [
+                Html5QrcodeSupportedFormats.CODE_128,
+                Html5QrcodeSupportedFormats.QR_CODE,
+                Html5QrcodeSupportedFormats.CODE_39,
+                Html5QrcodeSupportedFormats.EAN_13,
+            ]
+            : undefined;
+
+        const scannerConfig = {
+            formatsToSupport: formatsToSupport,
+            experimentalFeatures: {
+                useBarCodeDetectorIfSupported: true
+            },
+            verbose: false
+        };
+
+        html5QrCode = new Html5Qrcode("cameraReader", scannerConfig);
+
+        // 2. Format qrbox persegi panjang melebar khusus barcode 1D Code128
+        const scanConfig = {
+            fps: 15,
+            qrbox: (viewfinderWidth, viewfinderHeight) => {
+                const width = Math.min(340, Math.max(220, Math.floor(viewfinderWidth * 0.88)));
+                const height = Math.min(140, Math.max(90, Math.floor(viewfinderHeight * 0.65)));
+                return { width: width, height: height };
+            },
+            aspectRatio: 1.777778
+        };
+
+        const cameraConfig = {
+            facingMode: "environment",
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+        };
 
         html5QrCode.start(
-            { facingMode: "environment" },
-            config,
-            (decodedText) => {
-                // Barcode/QR berhasil terbaca
-                stopCameraScanner();
-                const searchInput = document.getElementById('searchInput');
-                if (searchInput) {
-                    searchInput.value = decodedText.trim().toUpperCase();
-                    document.getElementById('searchForm').submit();
-                }
-            },
+            cameraConfig,
+            scanConfig,
+            onScanSuccess,
             (errorMessage) => {
-                // Scanning frame terus berlanjut
+                // Scanning berkala
             }
-        ).catch((err) => {
-            alert('Tidak dapat mengakses kamera: ' + err);
-            stopCameraScanner();
+        ).catch(() => {
+            // Fallback kamera biasa jika constraint resolusi ditolak browser
+            html5QrCode.start(
+                { facingMode: "environment" },
+                scanConfig,
+                onScanSuccess,
+                () => {}
+            ).catch((err) => {
+                alert('Tidak dapat mengakses kamera: ' + err);
+                stopCameraScanner();
+            });
         });
     }
 
@@ -512,10 +573,15 @@
             html5QrCode.stop().then(() => {
                 html5QrCode.clear();
                 html5QrCode = null;
-            }).catch(() => {});
+                isProcessingScan = false;
+            }).catch(() => {
+                isProcessingScan = false;
+            });
         }
-        document.getElementById('cameraContainer').classList.add('hidden');
-        document.getElementById('btnStartCamera').classList.remove('hidden');
+        const container = document.getElementById('cameraContainer');
+        const btnStart = document.getElementById('btnStartCamera');
+        if (container) container.classList.add('hidden');
+        if (btnStart) btnStart.classList.remove('hidden');
     }
 
     document.addEventListener('DOMContentLoaded', function () {
