@@ -17,6 +17,26 @@ class StoreCheckInRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if (! $this->filled('parking_area_id')) {
+            $vehicleType = $this->input('vehicle_type', 'car');
+            $bestArea = \App\Models\ParkingArea::active()
+                ->get()
+                ->filter(fn ($area) => $area->hasAvailableSlot($vehicleType))
+                ->sortBy(function ($area) use ($vehicleType) {
+                    $occupied = $vehicleType === 'car' ? $area->getOccupiedCarCount() : $area->getOccupiedMotorcycleCount();
+                    $cap = $vehicleType === 'car' ? $area->capacity_car : $area->capacity_motorcycle;
+                    return $cap > 0 ? ($occupied / $cap) : 1;
+                })
+                ->first() ?? \App\Models\ParkingArea::active()->first();
+
+            if ($bestArea) {
+                $this->merge(['parking_area_id' => $bestArea->id]);
+            }
+        }
+    }
+
     public function rules(): array
     {
         return [

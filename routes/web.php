@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\CheckInController;
 use App\Http\Controllers\CheckOutController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\ParkingAreaController;
 use App\Http\Controllers\ReportController;
@@ -17,9 +18,7 @@ use Illuminate\Support\Facades\Route;
 */
 
 // ─── Dashboard ───────────────────────────────────────────────────────────────
-Route::get('/', function () {
-    return view('dashboard');
-})->name('dashboard');
+Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
 // ─── Modul 1: Manajemen Area Parkir (FR-01 s/d FR-06) ────────────────────────
 Route::resource('parking-areas', ParkingAreaController::class)
