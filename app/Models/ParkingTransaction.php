@@ -39,6 +39,8 @@ class ParkingTransaction extends Model
         'duration_minutes',
         'fee',
         'status',
+        'checkin_by',
+        'checkout_by',
     ];
 
     protected function casts(): array
@@ -48,6 +50,8 @@ class ParkingTransaction extends Model
             'check_out_at'     => 'datetime',
             'duration_minutes' => 'integer',
             'fee'              => 'integer',
+            'checkin_by'       => 'integer',
+            'checkout_by'      => 'integer',
         ];
     }
 
@@ -56,6 +60,21 @@ class ParkingTransaction extends Model
     public function parkingArea(): BelongsTo
     {
         return $this->belongsTo(ParkingArea::class);
+    }
+
+    public function checkinUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'checkin_by');
+    }
+
+    public function checkoutUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'checkout_by');
+    }
+
+    public function receiver(): BelongsTo
+    {
+        return $this->checkoutUser();
     }
 
     // ─── Scopes ──────────────────────────────────────────────────────────────

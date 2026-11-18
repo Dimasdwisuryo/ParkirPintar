@@ -50,7 +50,7 @@ class ReportController extends Controller
      */
     public function history(Request $request): View
     {
-        $query = ParkingTransaction::with('parkingArea')
+        $query = ParkingTransaction::with(['parkingArea', 'checkoutUser', 'checkinUser'])
             ->where('status', 'completed');
 
         // Filter berdasarkan tanggal
@@ -117,7 +117,7 @@ class ReportController extends Controller
         $vehicleType = $request->input('vehicle_type');
         $areaId = $request->input('area_id');
 
-        $query = ParkingTransaction::with('parkingArea')
+        $query = ParkingTransaction::with(['parkingArea', 'checkoutUser', 'checkinUser'])
             ->where('status', 'completed')
             ->whereNotNull('fee')
             ->whereDate('check_out_at', '>=', $dateFrom)
@@ -234,7 +234,7 @@ class ReportController extends Controller
         $vehicleType = $request->input('vehicle_type');
         $areaId = $request->input('area_id');
 
-        $query = ParkingTransaction::with('parkingArea')
+        $query = ParkingTransaction::with(['parkingArea', 'checkoutUser', 'checkinUser'])
             ->where('status', 'completed')
             ->whereNotNull('fee')
             ->whereDate('check_out_at', '>=', $dateFrom)
@@ -254,7 +254,7 @@ class ReportController extends Controller
         $callback = function () use ($data) {
             $handle = fopen('php://output', 'w');
             fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
-            fputcsv($handle, ['No. Tiket', 'Plat Nomor', 'Jenis Kendaraan', 'Area Parkir', 'Waktu Masuk', 'Waktu Keluar', 'Durasi (Menit)', 'Tarif (Rp)']);
+            fputcsv($handle, ['No. Tiket', 'Plat Nomor', 'Jenis Kendaraan', 'Area Parkir', 'Waktu Masuk', 'Waktu Keluar', 'Durasi (Menit)', 'Petugas', 'Tarif (Rp)']);
 
             foreach ($data as $t) {
                 fputcsv($handle, [
@@ -265,6 +265,7 @@ class ReportController extends Controller
                     $t->check_in_at?->format('Y-m-d H:i:s'),
                     $t->check_out_at?->format('Y-m-d H:i:s'),
                     $t->duration_minutes ?? 0,
+                    $t->checkoutUser->name ?? $t->checkinUser->name ?? 'Penanggung Jawab',
                     $t->fee ?? 0,
                 ]);
             }

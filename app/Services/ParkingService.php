@@ -74,6 +74,7 @@ class ParkingService
                 'parking_area_id' => $area->id,
                 'check_in_at'     => Carbon::now(),
                 'status'          => 'active',
+                'checkin_by'      => auth()->id(),
             ]);
         });
     }
@@ -116,6 +117,7 @@ class ParkingService
                 'duration_minutes' => $durationMinutes,
                 'fee'              => $fee,
                 'status'           => 'completed',
+                'checkout_by'      => auth()->id(),
             ]);
 
             return $transaction->fresh(['parkingArea']);
