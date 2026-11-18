@@ -163,7 +163,7 @@
                         </td>
                         <td style="padding: 4px 0; text-align: right;">
                             <div style="font-size: 10px; color: #8A958F;">Petugas</div>
-                            <div style="font-size: 12px; font-weight: bold; color: #102D21;">{{ auth()->user()->name ?? 'Dimas Arya' }}</div>
+                            <div style="font-size: 12px; font-weight: bold; color: #102D21;">{{ $transaction->checkoutUser->name ?? auth()->user()->name ?? 'Penanggung Jawab' }}</div>
                         </td>
                     </tr>
                 </tbody>

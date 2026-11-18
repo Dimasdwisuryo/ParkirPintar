@@ -233,6 +233,7 @@
                         <th class="py-3 px-6 text-[11px] font-bold tracking-wider text-[#859089] uppercase">Waktu Masuk</th>
                         <th class="py-3 px-6 text-[11px] font-bold tracking-wider text-[#859089] uppercase">Waktu Keluar</th>
                         <th class="py-3 px-6 text-[11px] font-bold tracking-wider text-[#859089] uppercase">Durasi</th>
+                        <th class="py-3 px-6 text-[11px] font-bold tracking-wider text-[#859089] uppercase">Petugas</th>
                         <th class="py-3 px-6 text-[11px] font-bold tracking-wider text-[#859089] uppercase text-right">Tarif</th>
                         <th class="py-3 px-6 text-[11px] font-bold tracking-wider text-[#859089] uppercase text-center">Status</th>
                     </tr>
@@ -287,6 +288,11 @@
                             @endif
                         </td>
 
+                        {{-- Petugas --}}
+                        <td class="py-3.5 px-6 text-xs font-medium text-[#102D21]">
+                            {{ $t->checkoutUser->name ?? $t->checkinUser->name ?? 'Penanggung Jawab' }}
+                        </td>
+
                         {{-- Tarif --}}
                         <td class="py-3.5 px-6 text-sm font-bold text-[#102D21] text-right">
                             {{ $t->fee !== null ? 'Rp ' . number_format($t->fee, 0, ',', '.') : '—' }}
@@ -301,7 +307,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="9" class="py-12 text-center text-[#859089]">
+                        <td colspan="10" class="py-12 text-center text-[#859089]">
                             <i class="bi bi-inbox text-3xl mb-2 block text-[#A0AAA4]"></i>
                             <p class="text-sm font-semibold text-[#102D21]">Tidak ada transaksi pada periode/filter ini</p>
                             <p class="text-xs text-[#617068] mt-1">Coba sesuaikan rentang tanggal, jenis kendaraan, atau area parkir.</p>

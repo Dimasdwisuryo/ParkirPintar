@@ -10,7 +10,7 @@
             {{ $todayDateFormatted }}
         </div>
         <h1 class="text-3xl font-extrabold text-[#102D21] tracking-tight mb-1">
-            {{ $greeting }}, {{ auth()->user()->name ?? 'Ahmad' }}
+            {{ $greeting }}, {{ auth()->user()->name ?? 'Penanggung Jawab' }}
         </h1>
         <p class="text-xs text-[#617068] font-medium m-0">
             Berikut ringkasan aktivitas parkir gedung hari ini.

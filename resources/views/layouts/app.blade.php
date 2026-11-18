@@ -159,21 +159,64 @@
                 </div>
             </div>
 
-            {{-- User Profile Footer --}}
-            <div class="flex items-center gap-3 pt-3 border-t border-[#173F2E]/80">
-                <div class="w-9 h-9 rounded-full bg-[#E7B89B] text-[#102D21] font-bold text-xs flex items-center justify-center flex-shrink-0 shadow-xs">
-                    {{ strtoupper(substr(auth()->user()->name ?? 'Ahmad Rizky', 0, 2)) }}
-                </div>
-                <div class="min-w-0 flex-1">
-                    <div class="text-white text-xs font-bold truncate">
-                        {{ auth()->user()->name ?? 'Ahmad Rizky' }}
+            {{-- User Profile Footer & Popover --}}
+            <div class="relative pt-3 border-t border-[#173F2E]/80" id="userProfileContainer">
+                {{-- Popover Dropdown Profil & Logout --}}
+                <div id="profileDropdown" class="hidden absolute bottom-full mb-3 left-0 right-0 bg-white text-[#102D21] rounded-2xl p-4 shadow-2xl border border-[#E0E5E2] z-50">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-10 h-10 rounded-full bg-[#D5F067] text-[#102D21] font-extrabold text-sm flex items-center justify-center flex-shrink-0 shadow-xs">
+                            {{ auth()->user()->initials ?? 'PJ' }}
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="text-[#102D21] text-xs font-bold truncate">
+                                {{ auth()->user()->name ?? 'Penanggung Jawab' }}
+                            </div>
+                            <div class="text-[#617068] text-[11px] font-medium truncate">
+                                {{ auth()->user()->email ?? 'admin@parkirpintar.id' }}
+                            </div>
+                        </div>
                     </div>
-                    <div class="text-[#8A958F] text-[11px] font-medium truncate">
-                        Administrator
+
+                    <div class="flex items-center gap-1.5 mb-3 flex-wrap">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#EDF5D6] text-[#536B20]">
+                            {{ auth()->user()->role_label ?? 'Penanggung Jawab' }}
+                        </span>
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            Online / Aktif
+                        </span>
+                    </div>
+
+                    <div class="border-t border-[#E0E5E2] pt-2">
+                        <form action="{{ route('logout') }}" method="POST" class="m-0">
+                            @csrf
+                            <button type="submit"
+                                    class="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold text-red-600 hover:text-red-700 hover:bg-red-50 transition border border-transparent hover:border-red-100 cursor-pointer">
+                                <i class="bi bi-box-arrow-right text-sm"></i>
+                                <span>Keluar (Logout)</span>
+                            </button>
+                        </form>
                     </div>
                 </div>
-                <div class="text-[#8A958F] hover:text-white cursor-pointer px-1 py-0.5 text-xs font-black">
-                    •••
+
+                {{-- Interactive User Card Button --}}
+                <div onclick="toggleProfileDropdown(event)"
+                     class="flex items-center gap-3 p-2 rounded-xl hover:bg-[#173F2E] cursor-pointer transition select-none group"
+                     title="Klik untuk melihat profil / keluar">
+                    <div class="w-9 h-9 rounded-full bg-[#D5F067] text-[#102D21] font-bold text-xs flex items-center justify-center flex-shrink-0 shadow-xs group-hover:scale-105 transition">
+                        {{ auth()->user()->initials ?? 'PJ' }}
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="text-white text-xs font-bold truncate">
+                            {{ auth()->user()->name ?? 'Penanggung Jawab' }}
+                        </div>
+                        <div class="text-[#8A958F] text-[11px] font-medium truncate">
+                            {{ auth()->user()->role_label ?? 'Penanggung Jawab' }}
+                        </div>
+                    </div>
+                    <div class="text-[#8A958F] group-hover:text-white px-1 py-0.5 text-xs font-black">
+                        •••
+                    </div>
                 </div>
             </div>
         </div>
@@ -248,8 +291,24 @@
 {{-- Bootstrap 5 Bundle JS --}}
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmMoRxFq9WzuNDFkmpCfJYTnMjr6" crossorigin="anonymous"></script>
 
-{{-- Shortcut ⌘K / Ctrl+K Script --}}
+{{-- Shortcut ⌘K / Ctrl+K & User Profile Dropdown Script --}}
 <script>
+    function toggleProfileDropdown(e) {
+        if (e) e.stopPropagation();
+        const dd = document.getElementById('profileDropdown');
+        if (dd) {
+            dd.classList.toggle('hidden');
+        }
+    }
+
+    document.addEventListener('click', function(e) {
+        const container = document.getElementById('userProfileContainer');
+        const dd = document.getElementById('profileDropdown');
+        if (container && dd && !container.contains(e.target)) {
+            dd.classList.add('hidden');
+        }
+    });
+
     document.addEventListener('keydown', function(e) {
         if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
             e.preventDefault();
