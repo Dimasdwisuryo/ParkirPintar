@@ -96,7 +96,7 @@ class DashboardController extends Controller
         $totalAvailableSlots = $areas->sum(fn ($a) => $a->getAvailableCarSlots() + $a->getAvailableMotorcycleSlots());
 
         // Aktivitas Terbaru
-        $recentTransactions = ParkingTransaction::with('parkingArea')
+        $recentTransactions = ParkingTransaction::with(['parkingArea', 'checkinUser'])
             ->latest('check_in_at')
             ->take(6)
             ->get();

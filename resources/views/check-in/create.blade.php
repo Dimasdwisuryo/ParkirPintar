@@ -139,7 +139,7 @@
             <div class="bg-[#F1F7E4] border border-[#E0E5E2] rounded-xl p-4 mb-5">
                 <div class="text-xs font-bold text-[#102D21] mb-0.5">Alokasi otomatis aktif</div>
                 <div class="text-[11px] text-[#617068] font-medium leading-relaxed">
-                    Area kosong atau area dengan okupansi terendah akan diprioritaskan.
+                    Area parkir dialokasikan berurutan hingga penuh (sequential fill).
                 </div>
             </div>
 

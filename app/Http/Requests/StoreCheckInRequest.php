@@ -21,15 +21,7 @@ class StoreCheckInRequest extends FormRequest
     {
         if (! $this->filled('parking_area_id')) {
             $vehicleType = $this->input('vehicle_type', 'car');
-            $bestArea = \App\Models\ParkingArea::active()
-                ->get()
-                ->filter(fn ($area) => $area->hasAvailableSlot($vehicleType))
-                ->sortBy(function ($area) use ($vehicleType) {
-                    $occupied = $vehicleType === 'car' ? $area->getOccupiedCarCount() : $area->getOccupiedMotorcycleCount();
-                    $cap = $vehicleType === 'car' ? $area->capacity_car : $area->capacity_motorcycle;
-                    return $cap > 0 ? ($occupied / $cap) : 1;
-                })
-                ->first() ?? \App\Models\ParkingArea::active()->first();
+            $bestArea = app(\App\Services\ParkingAllocationService::class)->allocate($vehicleType);
 
             if ($bestArea) {
                 $this->merge(['parking_area_id' => $bestArea->id]);
@@ -47,7 +39,7 @@ class StoreCheckInRequest extends FormRequest
                 'regex:/^[A-Z]{1,2}\s?\d{1,4}\s?[A-Z]{0,3}$/i',
             ],
             'vehicle_type'    => ['required', 'in:motorcycle,car'],
-            'parking_area_id' => ['required', 'integer', 'exists:parking_areas,id'],
+            'parking_area_id' => ['nullable', 'integer', 'exists:parking_areas,id'],
         ];
     }
 
