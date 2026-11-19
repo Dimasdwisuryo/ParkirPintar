@@ -11,6 +11,7 @@ pipeline {
         IMAGE = 'dimasdwiaja/parkirpintar'
         APP_IMAGE = 'dimasdwiaja/parkirpintar'
         SMOKE_URL = 'http://127.0.0.1:8000/health'
+        DOCKER_CONFIG = 'C:\\ProgramData\\Jenkins\\.docker'
         PATH = "C:\\Users\\ACER\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin;C:\\Program Files\\Docker\\Docker\\resources\\bin;${env.PATH}"
     }
 
@@ -91,12 +92,12 @@ APP_IMAGE=dimasdwiaja/parkirpintar
                     }
                 }
 
-                bat 'docker compose config -q'
-                bat 'docker compose pull app'
-                bat 'docker compose up -d db'
-                bat 'docker compose run --rm app php artisan migrate --force'
-                bat 'docker compose up -d app'
-                bat 'docker compose ps'
+                bat 'docker compose config -q || docker-compose config -q'
+                bat 'docker compose pull app || docker-compose pull app'
+                bat 'docker compose up -d db || docker-compose up -d db'
+                bat 'docker compose run --rm app php artisan migrate --force || docker-compose run --rm app php artisan migrate --force'
+                bat 'docker compose up -d app || docker-compose up -d app'
+                bat 'docker compose ps || docker-compose ps'
             }
         }
 
