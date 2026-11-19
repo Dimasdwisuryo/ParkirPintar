@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\ParkingArea;
 use App\Models\ParkingTransaction;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -91,7 +92,7 @@ class ParkingService
                 'parking_area_id' => $area->id,
                 'check_in_at'     => Carbon::now(),
                 'status'          => 'active',
-                'checkin_by'      => auth()->id(),
+                'checkin_by'      => Auth::id(),
             ]);
         });
     }
@@ -134,7 +135,7 @@ class ParkingService
                 'duration_minutes' => $durationMinutes,
                 'fee'              => $fee,
                 'status'           => 'completed',
-                'checkout_by'      => auth()->id(),
+                'checkout_by'      => Auth::id(),
             ]);
 
             return $transaction->fresh(['parkingArea']);
