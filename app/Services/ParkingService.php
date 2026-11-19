@@ -17,39 +17,29 @@ use Illuminate\Support\Str;
 class ParkingService
 {
     public function __construct(
-        private readonly ParkingFeeCalculator $feeCalculator
+        private readonly ParkingFeeCalculator $feeCalculator,
+        private readonly ParkingAllocationService $allocationService
     ) {}
 
     // ─── Check-In ─────────────────────────────────────────────────────────────
 
     /**
      * FR-07 s/d FR-11: Proses check-in kendaraan.
+     * Mendukung alokasi spesifik atau alokasi otomatis berurutan hingga penuh (Sequential Fill).
      *
-     * @param  string $licensePlate  Nomor plat kendaraan
-     * @param  string $vehicleType   'motorcycle' | 'car'
-     * @param  int    $areaId        ID area parkir
-     * @return ParkingTransaction    Transaksi yang baru dibuat
+     * @param  string   $licensePlate  Nomor plat kendaraan
+     * @param  string   $vehicleType   'motorcycle' | 'car'
+     * @param  int|null $areaId        ID area parkir (opsional, jika null otomatis sequential fill)
+     * @return ParkingTransaction      Transaksi yang baru dibuat
      *
      * @throws \RuntimeException Jika validasi gagal
      */
-    public function checkIn(string $licensePlate, string $vehicleType, int $areaId): ParkingTransaction
+    public function checkIn(string $licensePlate, string $vehicleType, ?int $areaId = null): ParkingTransaction
     {
         $plate = strtoupper(trim($licensePlate));
 
         return DB::transaction(function () use ($plate, $vehicleType, $areaId) {
-            // NFR-02: Lock area agar tidak terjadi race condition kapasitas
-            $area = ParkingArea::lockForUpdate()->findOrFail($areaId);
-
-            // FR-01/FR-05: Pastikan area aktif
-            if (! $area->is_active) {
-                throw new \RuntimeException('Area parkir tidak aktif.');
-            }
-
-            // FR-10: Tolak check-in jika kapasitas penuh
-            if (! $area->hasAvailableSlot($vehicleType)) {
-                $typeLabel = $vehicleType === 'car' ? 'mobil' : 'motor';
-                throw new \RuntimeException("Kapasitas {$typeLabel} di area ini sudah penuh.");
-            }
+            $typeLabel = $vehicleType === 'car' ? 'mobil' : 'motor';
 
             // NFR-03: Cegah satu plat memiliki dua transaksi aktif
             $existingActive = ParkingTransaction::where('license_plate', $plate)
@@ -61,6 +51,33 @@ class ParkingService
                 throw new \RuntimeException(
                     "Nomor plat {$plate} sudah memiliki transaksi aktif (tiket: {$existingActive->ticket_number})."
                 );
+            }
+
+            // Alokasi Area: Spesifik atau Otomatis Sequential Fill
+            if ($areaId && $areaId > 0) {
+                // NFR-02: Lock area agar tidak terjadi race condition kapasitas
+                $area = ParkingArea::lockForUpdate()->find($areaId);
+
+                if (! $area) {
+                    throw new \RuntimeException('Area parkir tidak ditemukan.');
+                }
+
+                // FR-01/FR-05: Pastikan area aktif
+                if (! $area->is_active) {
+                    throw new \RuntimeException('Area parkir tidak aktif.');
+                }
+
+                // FR-10: Tolak check-in jika kapasitas penuh
+                if (! $area->hasAvailableSlot($vehicleType)) {
+                    throw new \RuntimeException("Kapasitas {$typeLabel} di area ini sudah penuh.");
+                }
+            } else {
+                // Sequential Fill: Alokasikan ke area aktif pertama yang memiliki sisa slot
+                $area = $this->allocationService->allocate($vehicleType, true);
+
+                if (! $area) {
+                    throw new \RuntimeException("Kapasitas parkir untuk jenis kendaraan {$typeLabel} sudah penuh.");
+                }
             }
 
             // FR-11: Generate nomor tiket unik

@@ -175,28 +175,28 @@
             </div>
         </div>
 
-        {{-- 3 Tombol Aksi di Bawah Modal (Tinggi Seragam, Sejajar Rapi, 1 Baris) --}}
-        <div class="flex flex-col sm:flex-row items-center justify-between gap-2.5 w-full mt-6 no-print">
+        {{-- 3 Tombol Aksi di Bawah Modal (Compact & Sejajar Rapi, 1 Baris) --}}
+        <div class="flex items-center justify-center gap-2 w-full mt-5 no-print">
             {{-- 1. Print Invoice --}}
             <button type="button"
                     onclick="window.print()"
-                    class="h-11 px-4 text-sm font-semibold rounded-xl flex items-center justify-center gap-2 border border-[#E0E5E2] bg-white hover:bg-gray-50 text-[#102D21] whitespace-nowrap shadow-2xs transition active:scale-98 cursor-pointer flex-1 w-full sm:w-auto">
-                <i class="bi bi-printer text-base"></i>
+                    class="h-9 px-3 text-xs font-semibold rounded-lg inline-flex items-center justify-center gap-1.5 whitespace-nowrap border border-[#E0E5E2] bg-white hover:bg-gray-50 text-[#102D21] shadow-2xs transition active:scale-98 cursor-pointer flex-1">
+                <i class="bi bi-printer text-xs"></i>
                 <span>Print Invoice</span>
             </button>
 
             {{-- 2. Download PDF --}}
             <button type="button"
                     onclick="downloadInvoicePdf()"
-                    class="h-11 px-4 text-sm font-semibold rounded-xl flex items-center justify-center gap-2 border border-[#E0E5E2] bg-white hover:bg-gray-50 text-[#102D21] whitespace-nowrap shadow-2xs transition active:scale-98 cursor-pointer flex-1 w-full sm:w-auto">
-                <i class="bi bi-download text-base"></i>
+                    class="h-9 px-3 text-xs font-semibold rounded-lg inline-flex items-center justify-center gap-1.5 whitespace-nowrap border border-[#E0E5E2] bg-white hover:bg-gray-50 text-[#102D21] shadow-2xs transition active:scale-98 cursor-pointer flex-1">
+                <i class="bi bi-download text-xs"></i>
                 <span>Download PDF</span>
             </button>
 
             {{-- 3. Scan Berikutnya --}}
             <a href="{{ route('check-out.index') }}"
-               class="h-11 px-4 text-sm font-semibold rounded-xl flex items-center justify-center gap-2 bg-[#173F2E] hover:bg-[#234D39] text-white whitespace-nowrap shadow-xs transition active:scale-98 no-underline flex-1 w-full sm:w-auto">
-                <i class="bi bi-qr-code-scan text-base"></i>
+               class="h-9 px-3 text-xs font-semibold rounded-lg inline-flex items-center justify-center gap-1.5 whitespace-nowrap bg-[#173F2E] hover:bg-[#234D39] text-white shadow-xs transition active:scale-98 no-underline flex-1">
+                <i class="bi bi-qr-code-scan text-xs"></i>
                 <span>Scan Berikutnya</span>
             </a>
         </div>
