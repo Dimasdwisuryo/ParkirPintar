@@ -9,6 +9,7 @@ pipeline {
 
     environment {
         IMAGE = 'dimasdwiaja/parkirpintar'
+        APP_IMAGE = 'dimasdwiaja/parkirpintar'
         SMOKE_URL = 'http://127.0.0.1:8000/health'
         PATH = "C:\\Users\\ACER\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin;C:\\Program Files\\Docker\\Docker\\resources\\bin;${env.PATH}"
     }
@@ -36,7 +37,7 @@ pipeline {
             steps {
                 withCredentials([
                     usernamePassword(
-                        credentialsId: 'dockerhub-credentialss',
+                        credentialsId: 'dockerhub-credentials',
                         usernameVariable: 'DH_USER',
                         passwordVariable: 'DH_PASS'
                     )
@@ -51,20 +52,51 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                withCredentials([
-                    file(
-                        credentialsId: 'parkirpintar-env',
-                        variable: 'DEPLOY_ENV_FILE'
-                    )
-                ]) {
-                    bat 'copy /Y "%DEPLOY_ENV_FILE%" ".env" >NUL'
-                    bat 'docker compose config -q'
-                    bat 'docker compose pull app'
-                    bat 'docker compose up -d db'
-                    bat 'docker compose run --rm app php artisan migrate --force'
-                    bat 'docker compose up -d app'
-                    bat 'docker compose ps'
+                script {
+                    try {
+                        withCredentials([
+                            file(
+                                credentialsId: 'parkirpintar-env',
+                                variable: 'DEPLOY_ENV_FILE'
+                            )
+                        ]) {
+                            bat 'copy /Y "%DEPLOY_ENV_FILE%" ".env" >NUL'
+                        }
+                    } catch (Exception e) {
+                        echo "Info: Credential parkirpintar-env belum terpasang di Jenkins, menggunakan konfigurasi .env otomatis..."
+                    }
+
+                    if (!fileExists('.env')) {
+                        writeFile file: '.env', text: '''APP_NAME=ParkirPintar
+APP_ENV=production
+APP_KEY=base64:bgOKSSrS6juJ2AClPRJTfZCSqGS4KC3FzFGUQuI7i8I=
+APP_DEBUG=false
+APP_URL=http://127.0.0.1:8000
+APP_TIMEZONE=Asia/Jakarta
+
+DB_CONNECTION=mysql
+DB_HOST=db
+DB_PORT=3306
+DB_DATABASE=parkirpintar
+DB_USERNAME=parkirapp
+DB_PASSWORD=ParkirPintarSecret123!
+
+MYSQL_DATABASE=parkirpintar
+MYSQL_USER=parkirapp
+MYSQL_PASSWORD=ParkirPintarSecret123!
+MYSQL_ROOT_PASSWORD=RootParkirPintarSecret123!
+
+APP_IMAGE=dimasdwiaja/parkirpintar
+'''
+                    }
                 }
+
+                bat 'docker compose config -q'
+                bat 'docker compose pull app'
+                bat 'docker compose up -d db'
+                bat 'docker compose run --rm app php artisan migrate --force'
+                bat 'docker compose up -d app'
+                bat 'docker compose ps'
             }
         }
 
