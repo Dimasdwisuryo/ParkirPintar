@@ -1,6 +1,18 @@
 
 $ErrorActionPreference = "Stop"
 
+# Auto-detect path docker executable jika tidak ada di PATH (terutama saat dijalankan service/Jenkins di Windows)
+$candidatePaths = @(
+    "C:\Users\ACER\AppData\Local\Programs\DockerDesktop\resources\bin",
+    "C:\Program Files\Docker\Docker\resources\bin"
+)
+foreach ($dir in $candidatePaths) {
+    if ((Test-Path (Join-Path $dir "docker.exe")) -and ($env:PATH -notlike "*$dir*")) {
+        $env:PATH = "$dir;$env:PATH"
+        break
+    }
+}
+
 $imageName = "parkirpintar:test"
 
 $containerName = "parkirpintar-qa-" +
@@ -8,14 +20,21 @@ $containerName = "parkirpintar-qa-" +
 
 $reportDir = Join-Path (Get-Location).Path "test-results"
 $reportFile = Join-Path $reportDir "junit.xml"
+$buildLogsDir = Join-Path (Get-Location).Path "build\logs"
+$buildLogsFile = Join-Path $buildLogsDir "junit.xml"
 
 $created = $false
 $exitCode = 1
 
+# Buat direktori output sebelum pengujian berjalan agar selalu tersedia
 New-Item -ItemType Directory -Force $reportDir | Out-Null
+New-Item -ItemType Directory -Force $buildLogsDir | Out-Null
 
 if (Test-Path $reportFile) {
     Remove-Item $reportFile -Force
+}
+if (Test-Path $buildLogsFile) {
+    Remove-Item $buildLogsFile -Force
 }
 
 try {
@@ -40,7 +59,7 @@ try {
         -e "SESSION_DRIVER=array" `
         -e "CACHE_STORE=array" `
         $imageName `
-        sh -c 'mkdir -p /tmp/results && php vendor/bin/phpunit --log-junit /tmp/results/junit.xml' |
+        sh -c 'mkdir -p /tmp/results build/logs && php vendor/bin/phpunit --log-junit /tmp/results/junit.xml' |
         Out-Null
 
     if ($LASTEXITCODE -ne 0) {
@@ -83,7 +102,10 @@ try {
         throw "Laporan JUnit XML tidak ditemukan."
     }
 
-    Write-Host "Laporan tersimpan: $reportFile"
+    # Salin juga ke build\logs\junit.xml agar kompatibel dengan kedua lokasi yang didukung CI/CD
+    Copy-Item $reportFile $buildLogsFile -Force
+
+    Write-Host "Laporan tersimpan: $reportFile dan $buildLogsFile"
 
     $exitCode = $testExitCode
 }

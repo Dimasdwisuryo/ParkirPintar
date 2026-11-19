@@ -10,6 +10,7 @@ pipeline {
     environment {
         IMAGE = 'dimasdwiaja/parkirpintar'
         SMOKE_URL = 'http://127.0.0.1:8000/health'
+        PATH = "C:\\Users\\ACER\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin;C:\\Program Files\\Docker\\Docker\\resources\\bin;${env.PATH}"
     }
 
     stages {
@@ -77,12 +78,13 @@ pipeline {
     post {
         always {
             script {
-                if (fileExists('test-results/junit.xml')) {
-                    junit testResults: 'test-results/junit.xml',
+                def junitFile = fileExists('build/logs/junit.xml') ? 'build/logs/junit.xml' : (fileExists('test-results/junit.xml') ? 'test-results/junit.xml' : null)
+                if (junitFile) {
+                    junit testResults: junitFile,
                           allowEmptyResults: false
 
                     archiveArtifacts(
-                        artifacts: 'test-results/junit.xml',
+                        artifacts: junitFile,
                         allowEmptyArchive: false
                     )
                 } else {
