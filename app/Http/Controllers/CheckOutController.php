@@ -6,6 +6,7 @@ use App\Http\Requests\StoreCheckOutRequest;
 use App\Models\ParkingTransaction;
 use App\Services\ParkingFeeCalculator;
 use App\Services\ParkingService;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -44,16 +45,46 @@ class CheckOutController extends Controller
         $search      = strtoupper(trim($request->input('search', '')));
         $transaction = null;
         $error       = null;
+        $previewData = null;
 
         if ($search) {
             $transaction = $this->parkingService->findActiveTransaction($search);
 
             if (! $transaction) {
                 $error = "Tidak ditemukan transaksi aktif untuk: {$search}";
+            } else {
+                $transaction->load('parkingArea');
+
+                $now = Carbon::now('Asia/Jakarta');
+                $checkIn = $transaction->check_in_at->copy()->setTimezone('Asia/Jakarta');
+                $totalMinutes = max(0, (int) $checkIn->diffInMinutes($now));
+
+                $fee = $this->feeCalculator->calculate($transaction->check_in_at, Carbon::now(), $transaction->vehicle_type);
+                $formattedDuration = $this->feeCalculator->formatDuration($totalMinutes);
+
+                // Perhitungan jam tertagih (setelah 15 menit grace period)
+                $billableMinutes = max(0, $totalMinutes - 15);
+                $billableHours = (int) ceil($billableMinutes / 60);
+
+                // Rincian tarif per jenis kendaraan
+                $isCar = $transaction->vehicle_type === 'car';
+                $firstHourRate = $isCar ? 5000 : 2000;
+                $nextHourRate  = $isCar ? 3000 : 1000;
+
+                $previewData = [
+                    'now'               => $now,
+                    'checkIn'           => $checkIn,
+                    'totalMinutes'      => $totalMinutes,
+                    'formattedDuration' => $formattedDuration,
+                    'billableHours'     => $billableHours,
+                    'fee'               => $fee,
+                    'firstHourRate'     => $firstHourRate,
+                    'nextHourRate'      => $nextHourRate,
+                ];
             }
         }
 
-        return view('check-out.index', compact('transaction', 'search', 'error'));
+        return view('check-out.index', compact('transaction', 'search', 'error', 'previewData'));
     }
 
     /**
@@ -68,6 +99,7 @@ class CheckOutController extends Controller
 
             return redirect()
                 ->route('check-out.receipt', $transaction->id)
+                ->with('payment_method', $request->input('payment_method', 'Tunai'))
                 ->with('success', 'Check-out berhasil.');
 
         } catch (\RuntimeException $e) {
@@ -90,6 +122,21 @@ class CheckOutController extends Controller
         $formattedDuration = $this->feeCalculator->formatDuration($transaction->duration_minutes ?? 0);
         $formattedFee      = $this->feeCalculator->formatCurrency($transaction->fee ?? 0);
 
-        return view('check-out.receipt', compact('transaction', 'formattedDuration', 'formattedFee'));
+        // Jam tertagih
+        $billableMinutes = max(0, ($transaction->duration_minutes ?? 0) - 15);
+        $billableHours = (int) ceil($billableMinutes / 60);
+
+        $isCar = $transaction->vehicle_type === 'car';
+        $firstHourRate = $isCar ? 5000 : 2000;
+        $nextHourRate  = $isCar ? 3000 : 1000;
+
+        return view('check-out.receipt', compact(
+            'transaction',
+            'formattedDuration',
+            'formattedFee',
+            'billableHours',
+            'firstHourRate',
+            'nextHourRate'
+        ));
     }
 }

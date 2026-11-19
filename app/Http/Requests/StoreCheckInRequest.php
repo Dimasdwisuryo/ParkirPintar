@@ -17,6 +17,18 @@ class StoreCheckInRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if (! $this->filled('parking_area_id')) {
+            $vehicleType = $this->input('vehicle_type', 'car');
+            $bestArea = app(\App\Services\ParkingAllocationService::class)->allocate($vehicleType);
+
+            if ($bestArea) {
+                $this->merge(['parking_area_id' => $bestArea->id]);
+            }
+        }
+    }
+
     public function rules(): array
     {
         return [
@@ -27,7 +39,7 @@ class StoreCheckInRequest extends FormRequest
                 'regex:/^[A-Z]{1,2}\s?\d{1,4}\s?[A-Z]{0,3}$/i',
             ],
             'vehicle_type'    => ['required', 'in:motorcycle,car'],
-            'parking_area_id' => ['required', 'integer', 'exists:parking_areas,id'],
+            'parking_area_id' => ['nullable', 'integer', 'exists:parking_areas,id'],
         ];
     }
 
