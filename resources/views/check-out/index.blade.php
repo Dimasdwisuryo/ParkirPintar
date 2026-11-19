@@ -448,6 +448,9 @@
     let html5QrCode = null;
     let isProcessingScan = false;
     let nativeDetectorInterval = null;
+    let zxingScanInterval = null;
+    let zxingReaderInstance = null;
+    let scanCanvas = null;
     const totalFee = {{ isset($previewData) ? (int)$previewData['fee'] : 0 }};
 
     // Fungsi Pilihan Metode Pembayaran
@@ -643,10 +646,14 @@
                 verbose: false
             });
 
-            // Kotak pemindai proporsional 260x220 dengan fps 20
+            // Kotak pemindai melebar fleksibel agar barcode 1D Code128 panjang tidak terpotong
             const scanConfig = {
                 fps: 20,
-                qrbox: { width: 260, height: 220 },
+                qrbox: (viewfinderWidth, viewfinderHeight) => {
+                    const width = Math.min(Math.floor(viewfinderWidth * 0.92), 380);
+                    const height = Math.min(Math.floor(viewfinderHeight * 0.8), 240);
+                    return { width: Math.max(width, 280), height: Math.max(height, 160) };
+                },
                 aspectRatio: 1.777778,
                 disableFlip: false
             };
@@ -668,37 +675,78 @@
 
             if (loadingBox) loadingBox.classList.add('hidden');
 
-            // Booster native BarcodeDetector C++ jika didukung Chromium
-            initNativeBooster();
+            // Jalankan booster dual-engine (Chromium BarcodeDetector + ZXing TRY_HARDER)
+            initScannerBoosters();
 
         } catch (err) {
             showCameraError("Kamera tidak dapat diakses (" + (err.message || err) + "). Pastikan izin kamera telah diberikan di peramban.");
         }
     }
 
-    // Hardware Booster BarcodeDetector bawaan browser Chromium
-    function initNativeBooster() {
-        if (!('BarcodeDetector' in window)) return;
-        try {
-            BarcodeDetector.getSupportedFormats().then(supported => {
-                const desired = ['qr_code', 'code_128', 'code_39'].filter(f => supported.includes(f));
-                if (desired.length === 0) return;
+    // Dual-Engine Booster: Native BarcodeDetector C++ + ZXing MultiFormatReader TRY_HARDER
+    function initScannerBoosters() {
+        // 1. Hardware Booster BarcodeDetector bawaan Chromium
+        if ('BarcodeDetector' in window) {
+            try {
+                BarcodeDetector.getSupportedFormats().then(supported => {
+                    const desired = ['qr_code', 'code_128', 'code_39'].filter(f => supported.includes(f));
+                    if (desired.length > 0) {
+                        const detector = new BarcodeDetector({ formats: desired });
+                        nativeDetectorInterval = setInterval(async () => {
+                            if (isProcessingScan) return;
+                            const video = document.querySelector('#reader video');
+                            if (video && video.readyState >= 2) {
+                                try {
+                                    const barcodes = await detector.detect(video);
+                                    if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+                                        onScanSuccess(barcodes[0].rawValue);
+                                    }
+                                } catch (e) {}
+                            }
+                        }, 75);
+                    }
+                }).catch(() => {});
+            } catch (e) {}
+        }
 
-                const detector = new BarcodeDetector({ formats: desired });
-                nativeDetectorInterval = setInterval(async () => {
+        // 2. ZXing MultiFormatReader dengan TRY_HARDER (Deteksi Barcode 1D Code128 dari Frame Utuh)
+        if (typeof ZXing !== 'undefined') {
+            try {
+                const hints = new Map();
+                hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+                    ZXing.BarcodeFormat.CODE_128,
+                    ZXing.BarcodeFormat.QR_CODE,
+                    ZXing.BarcodeFormat.CODE_39
+                ]);
+                hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+                zxingReaderInstance = new ZXing.MultiFormatReader();
+                zxingReaderInstance.setHints(hints);
+
+                scanCanvas = document.createElement('canvas');
+                const ctx = scanCanvas.getContext('2d', { willReadFrequently: true });
+
+                zxingScanInterval = setInterval(() => {
                     if (isProcessingScan) return;
                     const video = document.querySelector('#reader video');
-                    if (video && video.readyState >= 2) {
+                    if (video && video.readyState >= 2 && video.videoWidth > 0) {
                         try {
-                            const barcodes = await detector.detect(video);
-                            if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
-                                onScanSuccess(barcodes[0].rawValue);
+                            scanCanvas.width = video.videoWidth;
+                            scanCanvas.height = video.videoHeight;
+                            ctx.drawImage(video, 0, 0, scanCanvas.width, scanCanvas.height);
+                            const imgData = ctx.getImageData(0, 0, scanCanvas.width, scanCanvas.height);
+                            const luminanceSource = new ZXing.RGBLuminanceSource(imgData.data, scanCanvas.width, scanCanvas.height);
+                            const binaryBitmap = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(luminanceSource));
+                            const result = zxingReaderInstance.decode(binaryBitmap);
+                            if (result && result.getText()) {
+                                onScanSuccess(result.getText());
                             }
-                        } catch (e) {}
+                        } catch (e) {
+                            // NotFoundException adalah normal ketika barcode belum sejajar kamera
+                        }
                     }
-                }, 75);
-            }).catch(() => {});
-        } catch (e) {}
+                }, 100);
+            } catch (e) {}
+        }
     }
 
     // Fitur Scan File Foto / Gambar Karcis
@@ -759,6 +807,10 @@
         if (nativeDetectorInterval) {
             clearInterval(nativeDetectorInterval);
             nativeDetectorInterval = null;
+        }
+        if (zxingScanInterval) {
+            clearInterval(zxingScanInterval);
+            zxingScanInterval = null;
         }
         if (html5QrCode) {
             try {
